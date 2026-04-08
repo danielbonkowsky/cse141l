@@ -53,8 +53,8 @@ int main() {
             }
             char lsb1[9];
             char lsb2[9];
-            to_binary(mem[2*i], lsb1);
-            to_binary(mem[2*j], lsb2);
+            to_binary(mem[2*i + 1], lsb1);
+            to_binary(mem[2*j + 1], lsb2);
             
             for (int c = 0; c < 8; c++) {
                 dist += lsb1[c]^lsb2[c];
