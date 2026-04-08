@@ -32,7 +32,7 @@ void to_binary(int8_t n, char *buffer) {
 
 int main() {
     int8_t mem[ARR_SIZE + 2];
-    populate_mem(&mem);
+    populate_mem(mem);
 
     for (int i = 0; i < ARR_SIZE; i++) {
         printf("mem[%d] = %d\n", i, mem[i]);
@@ -64,11 +64,11 @@ int main() {
             max_dist = max_dist > dist ? max_dist : dist;
         }
     }
-    mem[ARR_SIZE + 1] = min_dist;
-    mem[ARR_SIZE + 2] = max_dist;
+    mem[ARR_SIZE] = min_dist;
+    mem[ARR_SIZE + 1] = max_dist;
 
-    printf("The minimum Hamming distance was %d\n", mem[ARR_SIZE + 1]);
-    printf("The maximum Hamming distance was %d\n", mem[ARR_SIZE + 2]);
+    printf("The minimum Hamming distance is %d\n", mem[ARR_SIZE]);
+    printf("The maximum Hamming distance is %d\n", mem[ARR_SIZE + 1]);
 
     return 0;
 }
