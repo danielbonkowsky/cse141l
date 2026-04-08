@@ -1,0 +1,26 @@
+#include <stdio.h>
+
+/**
+ * Double-precision (16x16 bits = 32-bit product) two’s complement 
+ * multiplication using shift-and-add (a direct c=a*b – multiplication operation 
+ * is not allowed, although this can be a programming macro that breaks down 
+ * into a subroutine).
+ * Operands are stored in memory locations 0-3, 4-7, ..., 60-63, where the 
+ * format is:
+ * mem[4N+0]: most significant (signed) byte of operand A_N
+ * mem[4N+1]: least significant (unsigned) byte of operand A_N
+ * mem[4N+2]: most significant (signed) byte of operand B_N
+ * mem[4N+3]: least significant (unsigned) byte of operand B_åN
+ * 
+ * All of these independent variable values will be injected directly into your 
+ * data memory to start the program. You will then return your results to 
+ * data_mem 64-127, where the format is:
+ * mem[64+4N+0]: most significant (signed) byte of product of A_N * B_N
+ * mem[64+4N+1]: second (unsigned) byte of same product
+ * mem[64+4N+2]: third (unsigned) byte
+ * mem[64+4N+3]: least significant byte (unsigned)
+ */
+
+int main() {
+    return 0;
+}
