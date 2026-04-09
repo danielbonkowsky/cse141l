@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <time.h>
 
 /**
  * Write a program to find the absolute values of the least and greatest 
@@ -16,22 +17,24 @@
 
 #define ARR_SIZE 6
 
-void populate_mem(int8_t* mem) {
+void populate_mem(uint8_t* mem) {
     // randomly generate values to be used 
     for (int i = 0; i < ARR_SIZE; i++) {
-        (*mem) = (int8_t)((rand() & 0xFF));
+        (*mem) = (uint8_t)((rand() & 0xFF));
         mem++;
     }
 }
 
 int main() {
-    int8_t mem[ARR_SIZE + 6];
+    srand(time(NULL));
+
+    uint8_t mem[ARR_SIZE + 6];
     populate_mem(mem);
 
     for (int i = 0; i < ARR_SIZE / 2; i++) {
         uint16_t msb = ((uint16_t)mem[2 * i]) << 8;
         uint16_t lsb = ((uint16_t)mem[2 * i + 1]);
-        int16_t val = (int16_t)(msb | lsb);
+        int16_t val = (int16_t)(msb | lsb & 0xFF);
         printf("mem[%d] = %d\n", 2 * i, val);
     }
 
@@ -44,8 +47,8 @@ int main() {
             uint16_t lsb1 = ((uint16_t)mem[2 * i + 1]);
             uint16_t lsb2 = ((uint16_t)mem[2 * j + 1]);
 
-            int16_t val1 = (int16_t)(msb1 | lsb1);
-            int16_t val2 = (int16_t)(msb2 | lsb2);
+            int16_t val1 = (int16_t)(msb1 | lsb1 & 0xFF);
+            int16_t val2 = (int16_t)(msb2 | lsb2 & 0xFF);
             
             int16_t dist;
             if (val1 > val2) {
