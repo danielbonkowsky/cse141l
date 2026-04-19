@@ -45,6 +45,20 @@ class Machine:
             self.carry_flag = BitArray(uint=0, length=8)
 
 
+    def asr(self, rd: str, amt: int) -> None:
+        val = self.get_reg(rd)
+        rightmost = val[-1]
+        sign_bit = val[0]
+        val >>= amt
+        if sign_bit:
+            val[:amt] = BitArray(uint=0, length=amt).invert()
+        self.set_reg(rd, val)
+        if rightmost:
+            self.underflow_flag = BitArray(uint=1, length=1)
+        else:
+            self.underflow_flag = BitArray(uint=0, length=1)
+
+
     def scmp(self, rs1: str, rs2: str) -> None:
         if self.get_reg(rs1).int < self.get_reg(rs2).int:
             self.sign_flag = BitArray(uint=1, length=1)
