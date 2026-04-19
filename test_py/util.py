@@ -1,5 +1,6 @@
-from bitstring import BitArray
 import random
+
+from bitstring import BitArray
 
 
 class Machine:
