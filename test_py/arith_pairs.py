@@ -10,8 +10,9 @@ mem[68] = MSB of largest absolute value difference among
 pairs, mem[69] = LSB.
 """
 
-from bitstring import BitArray
 import sys
+
+from bitstring import BitArray
 from util import Machine
 
 

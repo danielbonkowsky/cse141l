@@ -8,9 +8,9 @@ two's complement half-word. Write the minimum distance in location 64 and the
 maximum in 65.
 """
 
+import sys
 
 from bitstring import BitArray
-import sys
 from util import Machine
 
 
