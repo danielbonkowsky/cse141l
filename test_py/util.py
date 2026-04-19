@@ -26,6 +26,7 @@ class Machine:
         self.sign_flag = BitArray(uint=random.getrandbits(1), length=1)
         self.carry_flag = BitArray(uint=random.getrandbits(1), length=1)
         self.overflow_flag = BitArray(uint=random.getrandbits(1), length=1)
+        self.underflow_flag = BitArray(uint=random.getrandbits(1), length=1)
 
         self.mem: list[BitArray] = []
 
