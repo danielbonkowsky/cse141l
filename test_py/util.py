@@ -45,6 +45,10 @@ class Machine:
             self.carry_flag = BitArray(uint=0, length=8)
 
 
+    def and_reg(self, rd: str, rs1: str, rs2: str) -> None:
+        self.set_reg(rd, self.get_reg(rs1)&self.get_reg(rs2))
+
+
     def asr(self, rd: str, amt: int) -> None:
         val = self.get_reg(rd)
         rightmost = val[-1]
