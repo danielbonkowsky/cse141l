@@ -62,6 +62,15 @@ class Machine:
         else:
             self.underflow_flag = BitArray(uint=0, length=1)
 
+    
+    def lsh(self, rd: str, amt: int) -> None:
+        val = self.get_reg(rd)
+        if val[:amt].uint > 0:
+            self.overflow_flag = BitArray(uint=1, length=1)
+        else:
+            self.overflow_flag = BitArray(uint=0, length=1)
+        self.set_reg(rd, val<<2)
+
 
     def scmp(self, rs1: str, rs2: str) -> None:
         if self.get_reg(rs1).int < self.get_reg(rs2).int:
