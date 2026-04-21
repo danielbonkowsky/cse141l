@@ -65,7 +65,7 @@ class Machine:
     
     def lsh(self, rd: str, amt: int) -> None:
         val = self.get_reg(rd)
-        if val[:amt].uint > 0:
+        if len(val[:amt]) > 0 and val[:amt].uint > 0:
             self.overflow_flag = BitArray(uint=1, length=1)
         else:
             self.overflow_flag = BitArray(uint=0, length=1)
