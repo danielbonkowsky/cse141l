@@ -169,6 +169,8 @@ class Machine:
                 raise ValueError(f"Register {rs} not a valid register name")
 
     def _set_acc_I(self, val: BitArray) -> None:
+        if len(val) != 8:
+            raise ValueError("Immediate values must have width=8")
         self.acc = val.copy()
 
     def _set_reg(self, rd: str) -> None:
