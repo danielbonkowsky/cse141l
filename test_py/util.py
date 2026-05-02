@@ -27,19 +27,23 @@ class Machine:
             self.mem.append(BitArray(uint=random.getrandbits(8), length=8))
 
     def and_R(self, rs: str) -> None:
+        """bitwise and with accumulator"""
         val = self._get_reg(rs)
         val &= self.acc
         self._set_acc_I(val)
 
     def xor_R(self, rs: str) -> None:
+        """bitwise exclusive or with accumulator"""
         val = self._get_reg(rs)
         val ^= self.acc
         self._set_acc_I(val)
 
     def inv_R(self) -> None:
+        """bitwise invert accumulator"""
         self._set_acc_I(~self.acc)
 
     def add_R(self, rs: str) -> None:
+        """add register to accumulator"""
         acc_val = self.acc.uint
         rs_val = self._get_reg(rs).uint
         if acc_val + rs_val > 255:
@@ -49,6 +53,7 @@ class Machine:
         self._set_acc_I(BitArray(uint=(acc_val + rs_val) % 256, length=8))
 
     def sub_R(self, rs: str) -> None:
+        """subtract register from accumulator"""
         rs_val = self._get_reg(rs)
         rs_val = ~rs_val
         rs_val = BitArray(uint=(rs_val.uint + 1) % 256, length=8)
@@ -56,21 +61,26 @@ class Machine:
         self._set_acc_I(BitArray(uint=(acc_val + rs_val.uint) % 256, length=8))
 
     def mov_R(self, rs: str) -> None:
+        """move register into accumulator"""
         source_reg = self._get_reg(rs)
         self.acc = source_reg
 
     def sto_R(self, rd: str) -> None:
+        """store accumulator into register"""
         self._set_reg(rd)
 
     def ld_R(self, rs: str) -> None:
+        """load from memory into accumulator"""
         addr = self._get_reg(rs)
         self._set_acc_I(self.mem[addr.uint].copy())
 
     def st_R(self, rs: str) -> None:
+        """store accumulator into memory"""
         addr = self._get_reg(rs)
         self.mem[addr.uint] = self.acc.copy()
 
     def cmp_R(self, rs: str) -> None:
+        """compare accumulator to register"""
         rs_val = self._get_reg(rs)
         self.zero_flag = BitArray(bin="0")
         self.sign_flag = BitArray(bin="0")
@@ -81,6 +91,7 @@ class Machine:
             self.sign_flag = BitArray(bin="1")
 
     def lsh_I(self, val: BitArray) -> None:
+        """logical shift left accumulator"""
         if self.acc[0]:
             self.overflow_flag = BitArray(bin="1")
         else:
@@ -89,12 +100,15 @@ class Machine:
         self._set_acc_I(self.acc << val.uint)
 
     def rsh_I(self, val: BitArray) -> None:
+        """logical shift right accumulator"""
         self._set_acc_I(self.acc >> val.uint)
 
     def ldi_I(self, val: BitArray) -> None:
+        """load immediate into accumulator"""
         self._set_acc_I(val)
 
     def addi_I(self, val: BitArray) -> None:
+        """add immediate to accumulator"""
         acc_val = self.acc.uint
         i_val = val.uint
         if acc_val + i_val > 255:
@@ -104,6 +118,7 @@ class Machine:
         self._set_acc_I(BitArray(uint=(acc_val + i_val) % 256, length=8))
 
     def subi_I(self, val: BitArray) -> None:
+        """subtract immediate from accumulator"""
         i_val = ~val
         i_val = BitArray(uint=(i_val.uint + 1) % 256, length=8)
         acc_val = self.acc.uint
