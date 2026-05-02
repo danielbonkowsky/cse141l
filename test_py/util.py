@@ -5,6 +5,8 @@ from bitstring import BitArray
 
 class Machine:
     def __init__(self):
+        self.acc = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg0 = BitArray(uint=random.getrandbits(8), length=8)
         self.reg1 = BitArray(uint=random.getrandbits(8), length=8)
         self.reg2 = BitArray(uint=random.getrandbits(8), length=8)
         self.reg3 = BitArray(uint=random.getrandbits(8), length=8)
@@ -12,15 +14,6 @@ class Machine:
         self.reg5 = BitArray(uint=random.getrandbits(8), length=8)
         self.reg6 = BitArray(uint=random.getrandbits(8), length=8)
         self.reg7 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg8 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg9 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg10 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg11 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg12 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg13 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg14 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg15 = BitArray(uint=random.getrandbits(8), length=8)
-        self.reg16 = BitArray(uint=random.getrandbits(8), length=8)
 
         self.zero_flag = BitArray(uint=random.getrandbits(1), length=1)
         self.sign_flag = BitArray(uint=random.getrandbits(1), length=1)
@@ -33,97 +26,141 @@ class Machine:
         for _ in range(500):
             self.mem.append(BitArray(uint=random.getrandbits(8), length=8))
 
+    def and_R(self, rs: str) -> None:
+        val = self._get_reg(rs)
+        val &= self.acc
+        self._set_acc_I(val)
 
-    def add(self, rd: str, rs1: str, rs2: str) -> None:
-        raw_sum = self.get_reg(rs1).uint + self.get_reg(rs2).uint
-        overflow = raw_sum >= 256
+    def xor_R(self, rs: str) -> None:
+        val = self._get_reg(rs)
+        val ^= self.acc
+        self._set_acc_I(val)
 
-        self.set_reg(rd, BitArray(uint=raw_sum & 255, length=8))
-        if overflow:
-            self.carry_flag = BitArray(uint=1, length=8)
+    def inv_R(self) -> None:
+        self._set_acc_I(~self.acc)
+
+    def add_R(self, rs: str) -> None:
+        acc_val = self.acc.uint
+        rs_val = self._get_reg(rs).uint
+        if acc_val + rs_val > 255:
+            self.carry_flag = BitArray(bin="1")
         else:
-            self.carry_flag = BitArray(uint=0, length=8)
+            self.carry_flag = BitArray(bin="0")
+        self._set_acc_I(BitArray(uint=(acc_val + rs_val) % 256, length=8))
 
+    def sub_R(self, rs: str) -> None:
+        rs_val = self._get_reg(rs)
+        rs_val = ~rs_val
+        rs_val = BitArray(uint=(rs_val.uint + 1) % 256, length=8)
+        acc_val = self.acc.uint
+        self._set_acc_I(BitArray(uint=(acc_val + rs_val.uint) % 256, length=8))
 
-    def and_reg(self, rd: str, rs1: str, rs2: str) -> None:
-        self.set_reg(rd, self.get_reg(rs1)&self.get_reg(rs2))
+    def mov_R(self, rs: str) -> None:
+        source_reg = self._get_reg(rs)
+        self.acc = source_reg
 
+    def sto_R(self, rd: str) -> None:
+        self._set_reg(rd)
 
-    def asr(self, rd: str, amt: int) -> None:
-        val = self.get_reg(rd)
-        rightmost = val[-1]
-        sign_bit = val[0]
-        val >>= amt
-        if sign_bit:
-            val[:amt] = BitArray(uint=0, length=amt).invert()
-        self.set_reg(rd, val)
-        if rightmost:
-            self.underflow_flag = BitArray(uint=1, length=1)
+    def ld_R(self, rs: str) -> None:
+        addr = self._get_reg(rs)
+        self._set_acc_I(self.mem[addr.uint].copy())
+
+    def st_R(self, rs: str) -> None:
+        addr = self._get_reg(rs)
+        self.mem[addr.uint] = self.acc.copy()
+
+    def cmp_R(self, rs: str) -> None:
+        rs_val = self._get_reg(rs)
+        self.zero_flag = BitArray(bin="0")
+        self.sign_flag = BitArray(bin="0")
+
+        if rs_val.int == self.acc.int:
+            self.zero_flag = BitArray(bin="1")
+        if self.acc.int < rs_val.int:
+            self.sign_flag = BitArray(bin="1")
+
+    def lsh_I(self, val: BitArray) -> None:
+        if self.acc[0]:
+            self.overflow_flag = BitArray(bin="1")
         else:
-            self.underflow_flag = BitArray(uint=0, length=1)
+            self.overflow_flag = BitArray(bin="0")
 
-    
-    def lsh(self, rd: str, amt: int) -> None:
-        val = self.get_reg(rd)
-        if len(val[:amt]) > 0 and val[:amt].uint > 0:
-            self.overflow_flag = BitArray(uint=1, length=1)
+        self._set_acc_I(self.acc << val.uint)
+
+    def rsh_I(self, val: BitArray) -> None:
+        self._set_acc_I(self.acc >> val.uint)
+
+    def ldi_I(self, val: BitArray) -> None:
+        self._set_acc_I(val)
+
+    def addi_I(self, val: BitArray) -> None:
+        acc_val = self.acc.uint
+        i_val = val.uint
+        if acc_val + i_val > 255:
+            self.overflow_flag = BitArray(bin="1")
         else:
-            self.overflow_flag = BitArray(uint=0, length=1)
-        self.set_reg(rd, val<<amt)
-    
+            self.overflow_flag = BitArray(bin="0")
+        self._set_acc_I(BitArray(uint=(acc_val + i_val) % 256, length=8))
 
-    def rsh(self, rd: str, amt: int) -> None:
-        val = self.get_reg(rd)
-        if val[len(val) - amt:].uint > 0:
-            self.underflow_flag = BitArray(uint=1, length=1)
-        else:
-            self.underflow_flag = BitArray(uint=0, length=1)
-        self.set_reg(rd, val>>amt)
+    def subi_I(self, val: BitArray) -> None:
+        i_val = ~val
+        i_val = BitArray(uint=(i_val.uint + 1) % 256, length=8)
+        acc_val = self.acc.uint
+        self._set_acc_I(BitArray(uint=(acc_val + i_val.uint) % 256, length=8))
 
-
-    def scmp(self, rs1: str, rs2: str) -> None:
-        if self.get_reg(rs1).int < self.get_reg(rs2).int:
-            self.sign_flag = BitArray(uint=1, length=1)
-        else:
-            self.sign_flag = BitArray(uint=0, length=1)
-        
-        if self.get_reg(rs1).int == self.get_reg(rs2).int:
-            self.zero_flag = BitArray(uint=1, length=1)
-        else:
-            self.zero_flag = BitArray(uint=0, length=1)
-
-
-    def ucmp(self, rs1: str, rs2: str) -> None:
-        if self.get_reg(rs1).uint < self.get_reg(rs2).uint:
-            self.sign_flag = BitArray(uint=1, length=1)
-        else:
-            self.sign_flag = BitArray(uint=0, length=1)
-        
-        if self.get_reg(rs1).uint == self.get_reg(rs2).uint:
-            self.zero_flag = BitArray(uint=1, length=1)
-        else:
-            self.zero_flag = BitArray(uint=0, length=1)
-
-
-    def count_ones(self, rd: str, rs: str) -> None:
-        cnt = 0
-        for bit in self.get_reg(rs).bin:
-            cnt += int(bit)
-        self.set_reg(rd, BitArray(uint=cnt, length=8))
-
-
-    def xor(self, rd: str, rs1: str, rs2: str) -> None:
-       self.set_reg(rd, self.get_reg(rs1)^self.get_reg(rs2))
-
-
-    def invert_reg(self, rd) -> None:
-        val = self.get_reg(rd)
-        val.invert()
-        self.set_reg(rd, val)
-
-
-    def set_reg(self, rd: str, val: BitArray) -> None:
+    def _get_reg(self, rd: str) -> BitArray:
         match rd:
+            case "acc":
+                return self.acc.copy()
+            case "r0":
+                return self.reg0.copy()
+            case "r1":
+                return self.reg1.copy()
+            case "r2":
+                return self.reg2.copy()
+            case "r3":
+                return self.reg3.copy()
+            case "r4":
+                return self.reg4.copy()
+            case "r5":
+                return self.reg5.copy()
+            case "r6":
+                return self.reg6.copy()
+            case "r7":
+                return self.reg7.copy()
+            case _:
+                raise ValueError(f"Register {rd} not a valid register name")
+
+    def _set_acc_R(self, rs: str) -> None:
+        match rs:
+            case "r0":
+                self.acc = self.reg0.copy()
+            case "r1":
+                self.acc = self.reg1.copy()
+            case "r2":
+                self.acc = self.reg2.copy()
+            case "r3":
+                self.acc = self.reg3.copy()
+            case "r4":
+                self.acc = self.reg4.copy()
+            case "r5":
+                self.acc = self.reg5.copy()
+            case "r6":
+                self.acc = self.reg6.copy()
+            case "r7":
+                self.acc = self.reg7.copy()
+            case _:
+                raise ValueError(f"Register {rs} not a valid register name")
+
+    def _set_acc_I(self, val: BitArray) -> None:
+        self.acc = val.copy()
+
+    def _set_reg(self, rd: str) -> None:
+        val = self.acc.copy()
+        match rd:
+            case "r0":
+                self.reg0 = val
             case "r1":
                 self.reg1 = val
             case "r2":
@@ -138,52 +175,5 @@ class Machine:
                 self.reg6 = val
             case "r7":
                 self.reg7 = val
-            case "r8":
-                self.reg8 = val
-            case "r9":
-                self.reg9 = val
-            case "r10":
-                self.reg10 = val
-            case "r11":
-                self.reg11 = val
-            case "r12":
-                self.reg12 = val
-            case "r13":
-                self.reg13 = val
-            case "r14":
-                self.reg14 = val
-            case "r15":
-                self.reg15 = val
-            case "r16":
-                self.reg16 = val
             case _:
                 raise ValueError(f"Register {rd} not a valid register name")
-
-
-    def get_reg(self, rd: str) -> BitArray:
-        match rd:
-            case "r1": return self.reg1.copy()
-            case "r2": return self.reg2.copy()
-            case "r3": return self.reg3.copy()
-            case "r4": return self.reg4.copy()
-            case "r5": return self.reg5.copy()
-            case "r6": return self.reg6.copy()
-            case "r7": return self.reg7.copy()
-            case "r8": return self.reg8.copy()
-            case "r9": return self.reg9.copy()
-            case "r10": return self.reg10.copy()
-            case "r11": return self.reg11.copy()
-            case "r12": return self.reg12.copy()
-            case "r13": return self.reg13.copy()
-            case "r14": return self.reg14.copy()
-            case "r15": return self.reg15.copy()
-            case "r16": return self.reg16.copy()
-            case _: raise ValueError(f"Register {rd} not a valid register name")
-
-
-    def set_mem(self, loc: int, rs: str) -> None:
-        self.mem[loc] = self.get_reg(rs)
-
-
-    def get_mem(self, rd: str, loc: int) -> None:
-        self.set_reg(rd, self.mem[loc].copy())
