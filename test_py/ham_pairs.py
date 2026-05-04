@@ -18,26 +18,26 @@ def main(vm: Machine | None = None) -> int:
     if vm is None:
         vm = Machine()
 
-    # initialize r0 <- min dist; r1 <- max dist
+    # initialize r2 <- min dist; r3 <- max dist
     vm.ldi_I(BitArray(bin="01111111"))
-    vm.sto_R("r0")
+    vm.sto_R("r2")
     vm.ldi_I(BitArray(bin="00000000"))
-    vm.sto_R("r1")
+    vm.sto_R("r3")
 
     for i in range(32):
         for j in range(i + 1, 32):
-            # r2 <- i; r3 <- j ( not necessary for sim, but need to alloc in real asm code )
+            # r0 <- i; r1 <- j ( not necessary for sim, but need to alloc in real asm code )
             vm.ldi_I(BitArray(uint=i, length=8))
-            vm.sto_R("r2")
+            vm.sto_R("r0")
             vm.ldi_I(BitArray(uint=j, length=8))
-            vm.sto_R("r3")
+            vm.sto_R("r1")
 
             # r4 <- curr dist
             vm.ldi_I(BitArray(bin="00000000"))
             vm.sto_R("r4")
 
             # r5 <- MSB1 addr
-            vm.mov_R("r2")
+            vm.mov_R("r0")
             vm.lsh_I(BitArray(uint=1, length=8))
             vm.sto_R("r5")
 
@@ -46,7 +46,7 @@ def main(vm: Machine | None = None) -> int:
             vm.sto_R("r5")
 
             # r6 <- MSB2 addr
-            vm.mov_R("r3")
+            vm.mov_R("r1")
             vm.lsh_I(BitArray(uint=1, length=8))
             vm.sto_R("r6")
 
@@ -60,7 +60,7 @@ def main(vm: Machine | None = None) -> int:
             for _ in range(8):
                 # r5 will be loop counter in real asm
                 vm.lsh_I(BitArray(uint=1, length=8))
-                if vm.overflow_flag[0]:
+                if vm.carry_flag[0]:
                     # save acc in r6
                     vm.sto_R("r6")
 
@@ -75,7 +75,7 @@ def main(vm: Machine | None = None) -> int:
                     vm.mov_R("r6")
 
             # r5 <- LSB1 addr
-            vm.mov_R("r2")
+            vm.mov_R("r0")
             vm.lsh_I(BitArray(uint=1, length=8))
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r5")
@@ -85,7 +85,7 @@ def main(vm: Machine | None = None) -> int:
             vm.sto_R("r5")
 
             # r6 <- LSB2 addr
-            vm.mov_R("r3")
+            vm.mov_R("r1")
             vm.lsh_I(BitArray(uint=1, length=8))
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r6")
@@ -100,7 +100,7 @@ def main(vm: Machine | None = None) -> int:
             for _ in range(8):
                 # r5 will be loop counter in real asm
                 vm.lsh_I(BitArray(uint=1, length=8))
-                if vm.overflow_flag[0]:
+                if vm.carry_flag[0]:
                     # save acc in r6
                     vm.sto_R("r6")
 
@@ -116,28 +116,28 @@ def main(vm: Machine | None = None) -> int:
 
             # Compare curr dist to min dist
             vm.mov_R("r4")
-            vm.cmp_R("r0")
-            if vm.sign_flag[0]:
-                vm.sto_R("r0")
+            vm.cmp_R("r2")
+            if vm.carry_flag[0]:
+                vm.sto_R("r2")
 
             # Compare curr dist to max dist
-            vm.mov_R("r1")
+            vm.mov_R("r3")
             vm.cmp_R("r4")
-            if vm.sign_flag[0]:
+            if vm.carry_flag[0]:
                 vm.mov_R("r4")
-                vm.sto_R("r1")
+                vm.sto_R("r3")
 
     # Store min dist into memory
     vm.ldi_I(BitArray(uint=64, length=8))
-    vm.sto_R("r2")
-    vm.mov_R("r0")
-    vm.st_R("r2")
+    vm.sto_R("r0")
+    vm.mov_R("r2")
+    vm.st_R("r0")
 
     # Store max dist into memory
     vm.ldi_I(BitArray(uint=65, length=8))
-    vm.sto_R("r2")
-    vm.mov_R("r1")
-    vm.st_R("r2")
+    vm.sto_R("r0")
+    vm.mov_R("r3")
+    vm.st_R("r0")
 
     return 0
 
@@ -154,9 +154,15 @@ def test() -> None:
             vm.mem[idx * 2] = BitArray(uint=(v >> 8) & 0xFF, length=8)
             vm.mem[idx * 2 + 1] = BitArray(uint=v & 0xFF, length=8)
         main(vm)
-        dists = [_hamming(values[i], values[j]) for i in range(32) for j in range(i + 1, 32)]
-        assert vm.mem[64].uint == min(dists), f"{label}: min wrong (got {vm.mem[64].uint}, expected {min(dists)})"
-        assert vm.mem[65].uint == max(dists), f"{label}: max wrong (got {vm.mem[65].uint}, expected {max(dists)})"
+        dists = [
+            _hamming(values[i], values[j]) for i in range(32) for j in range(i + 1, 32)
+        ]
+        assert vm.mem[64].uint == min(dists), (
+            f"{label}: min wrong (got {vm.mem[64].uint}, expected {min(dists)})"
+        )
+        assert vm.mem[65].uint == max(dists), (
+            f"{label}: max wrong (got {vm.mem[65].uint}, expected {max(dists)})"
+        )
 
     _run([0x0000] * 32, "all zeros")
     _run([0xFFFF] * 32, "all max")
