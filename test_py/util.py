@@ -26,12 +26,12 @@ class Machine:
             self.mem.append(BitArray(uint=random.getrandbits(8), length=8))
 
     def and_R(self, rs: str) -> None:
-        """Bitwise AND of rs with the accumulator.
+        """bitwise AND of rs with the accumulator.
 
-        Args:
-            rs: The register to AND
+        args:
+            rs: the register to AND
 
-        Notes:
+        notes:
             * clears carry_flag and overflow_flag
             * zero_flag: set if the result is zero
             * sign_flag: msb of the result
@@ -47,12 +47,12 @@ class Machine:
         self._set_acc_I(val)
 
     def xor_R(self, rs: str) -> None:
-        """Bitwise XOR of rs with the accumulator
+        """bitwise XOR of rs with the accumulator
 
-        Args:
-            rs: The register to XOR
+        args:
+            rs: the register to XOR
 
-        Notes:
+        notes:
             * clears carry_flag and overflow_flag
             * zero_flag: set if the result is zero
             * sign_flag: msb of the result
@@ -68,18 +68,18 @@ class Machine:
         self._set_acc_I(val)
 
     def inv_R(self) -> None:
-        """Bitwise invert the accumulator.
+        """bitwise invert the accumulator.
 
-        Notes:
+        notes:
             * preserves flags
         """
         self._set_acc_I(~self.acc)
 
     def add_R(self, rs: str) -> None:
-        """Adds the value in rs to the accumulator.
+        """adds the value in rs to the accumulator.
 
-        Args:
-            rs: The register to add
+        args:
+            rs: the register to add
 
         Notes:
             * carry_flag: set if there is an unsigned overflow
@@ -108,17 +108,17 @@ class Machine:
         self._set_acc_I(BitArray(uint=result_wrapped, length=8))
 
     def sub_R(self, rs: str) -> None:
-        """Subtracts the value in rs from the accumulator.
+        """subtracts the value in rs from the accumulator.
 
-        Args:
-            rs: The register to subtract
+        args:
+            rs: the register to subtract
 
-        Notes:
+        notes:
             * carry_flag: set if there is an unsigned borrow
             * overflow_flag: set if operands have opposite signs and result sign
             differs from acc
-            * zero flag: set if the result is zero
-            * sign flag: msb of the result
+            * zero_flag: set if the result is zero
+            * sign_flag: msb of the result
         """
         acc_val = self.acc.uint
         rs_val = self._get_reg(rs).uint
@@ -141,66 +141,66 @@ class Machine:
         self._set_acc_I(BitArray(uint=result_wrapped, length=8))
 
     def mov_R(self, rs: str) -> None:
-        """Move the value of rs into the accumulator.
+        """move the value of rs into the accumulator.
 
-        Args:
-            rs: The register to move into the accumulator
+        args:
+            rs: the register to move into the accumulator
 
-        Notes:
+        notes:
             * preserves flags
         """
         source_reg = self._get_reg(rs)
         self.acc = source_reg
 
     def sto_R(self, rd: str) -> None:
-        """Store the accumulator into rd.
+        """store the accumulator into rd.
 
-        Args:
+        args:
             rd: The register to move acc into
 
-        Notes:
+        notes:
             * preserves flags
         """
         self._set_reg(rd)
 
     def ld_R(self, rs: str) -> None:
-        """Load from memory into accumulator.
+        """load from memory into accumulator.
 
-        Args:
-            rs: The register containing the memory address to load from
+        args:
+            rs: the register containing the memory address to load from
 
-        Notes:
+        notes:
             * preserves flags
         """
         addr = self._get_reg(rs)
         self._set_acc_I(self.mem[addr.uint].copy())
 
     def st_R(self, rs: str) -> None:
-        """Store the accumulator into memory
+        """store the accumulator into memory
 
-        Args:
-            rs: The register containing the memory address to store into
+        args:
+            rs: the register containing the memory address to store into
 
-        Notes:
+        notes:
             * preserves flags
         """
         addr = self._get_reg(rs)
         self.mem[addr.uint] = self.acc.copy()
 
     def cmp_R(self, rs: str) -> None:
-        """Compare the accumulator to a register.
+        """compare the accumulator to a register.
 
-        Args:
-            rs: The register to compare with
+        args:
+            rs: the register to compare with
 
-        Notes:
-            * cmp performs a subtraction and discards the result, but saves the
-              flags as follows:
-              - carry_flag: set if there is an unsigned borrow
-              - overflow_flag: set if operands have opposite signs and result sign
-                differs from acc
-              - zero flag: set if the result is zero
-              - sign flag: msb of the result
+        notes:
+            * cmp performs a subtraction and discards the result, but sets flags
+            in the same way
+            * carry_flag: set if there is an unsigned borrow
+            * overflow_flag: set if operands have opposite signs and result sign
+              differs from acc
+            * zero_flag: set if the result is zero
+            * sign_flag: msb of the result
         """
         acc_val = self.acc.uint
         rs_val = self._get_reg(rs).uint
@@ -217,19 +217,20 @@ class Machine:
         self.overflow_flag = BitArray(bin="1") if signed_overflow else BitArray(bin="0")
 
         self.zero_flag = BitArray(bin="1") if result_wrapped == 0 else BitArray(bin="0")
-
         self.sign_flag = BitArray(bin="1") if res_sign else BitArray(bin="0")
 
     def lsh_I(self, val: BitArray) -> None:
-        """Performs a logical shift left on the accumulator.
+        """performs a logical shift left on the accumulator.
 
-        Args:
-            val: The number of bits to shift.
+        args:
+            val: the number of bits to shift.
 
-        Notes:
-            * carry_flag: Set to the last bit shifted out.
-            * overflow_flag: Set if the sign bit changed during the shift.
-              Undefined for shifts > 1.
+        notes:
+            * carry_flag: set to the last bit shifted out.
+            * overflow_flag: set if the sign bit changed during the shift.
+              undefined for shifts > 1.
+            * zero_flag: set if the result is zero
+            * sign_flag: msb of the result
         """
         if val.uint < 8 and self.acc[val.uint - 1]:
             self.carry_flag = BitArray(bin="1")
@@ -241,18 +242,24 @@ class Machine:
             else:
                 self.overflow_flag = BitArray(bin="1")
 
-        self._set_acc_I(self.acc << val.uint)
+        result = self.acc << val.uint
+        self.zero_flag = BitArray(bin="1") if result.uint == 0 else BitArray(bin="0")
+        self.sign_flag = BitArray(bin="1") if result[0] else BitArray(bin="0")
+
+        self._set_acc_I(result)
 
     def rsh_I(self, val: BitArray) -> None:
-        """Performs a logical shift right on the accumulator.
+        """performs a logical shift right on the accumulator.
 
-        Args:
-            val: The number of bits to shift.
+        args:
+            val: the number of bits to shift.
 
-        Notes:
-            * carry_flag: Set to the last bit shifted out.
-            * overflow_flag: Set if the sign bit changed during the shift.
+        notes:
+            * carry_flag: set to the last bit shifted out.
+            * overflow_flag: set if the sign bit changed during the shift.
               Undefined for shifts > 1.
+            * zero_flag: set if the result is zero
+            * sign_flag: msb of the result
         """
         if val.uint < 8 and self.acc[8 - val.uint]:
             self.carry_flag = BitArray(bin="1")
@@ -264,26 +271,30 @@ class Machine:
             else:
                 self.overflow_flag = BitArray(bin="0")
 
-        self._set_acc_I(self.acc >> val.uint)
+        result = self.acc >> val.uint
+        self.zero_flag = BitArray(bin="1") if result.uint == 0 else BitArray(bin="0")
+        self.sign_flag = BitArray(bin="1") if result[0] else BitArray(bin="0")
+
+        self._set_acc_I(result)
 
     def ldi_I(self, val: BitArray) -> None:
-        """Load an immediate into accumulator.
+        """load an immediate into accumulator.
 
-        Args:
-            val: The value to load into the accumulator
+        args:
+            val: the value to load into the accumulator
 
-        Notes:
+        notes:
             * preserves flags
         """
         self._set_acc_I(val)
 
     def addi_I(self, val: BitArray) -> None:
-        """Adds an immediate value to the accumulator.
+        """adds an immediate value to the accumulator.
 
-        Args:
-            val: The value to add
+        args:
+            val: the value to add
 
-        Notes:
+        notes:
             * carry_flag: set if there is an unsigned overflow
             * overflow_flag: set if there is a signed overflow (both operands
             same sign, result differs)
@@ -310,17 +321,17 @@ class Machine:
         self._set_acc_I(BitArray(uint=result_wrapped, length=8))
 
     def subi_I(self, val: BitArray) -> None:
-        """Subtracts an immediate value from the accumulator.
+        """subtracts an immediate value from the accumulator.
 
-        Args:
-            val: The value to subtract
+        args:
+            val: the value to subtract
 
-        Notes:
+        notes:
             * carry_flag: set if there is an unsigned borrow
             * overflow_flag: set if operands have opposite signs and result sign
             differs from acc
-            * zero flag: set if the result is zero
-            * sign flag: msb of the result
+            * zero_flag: set if the result is zero
+            * sign_flag: msb of the result
         """
         acc_val = self.acc.uint
         imm_val = val.uint
