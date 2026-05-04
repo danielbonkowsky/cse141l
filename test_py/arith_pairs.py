@@ -1,12 +1,12 @@
-""" 
-Write a program to find the absolute values of the least and greatest 
-arithmetic difference among all pairs of incoming values from Program 2. 
-Assume again that all values are two's complement (“signed”) 16-bit integers. 
-The array of integers starts at location 0. Write the absolute value of the 
-minimum difference in locations 66-67 and the maximum in 68-69. Format: 
-mem[66] = MSB of smallest absolute value difference among pairs; 
-mem[67] = LSB. 
-mem[68] = MSB of largest absolute value difference among 
+"""
+Write a program to find the absolute values of the least and greatest
+arithmetic difference among all pairs of incoming values from Program 2.
+Assume again that all values are two's complement (“signed”) 16-bit integers.
+The array of integers starts at location 0. Write the absolute value of the
+minimum difference in locations 66-67 and the maximum in 68-69. Format:
+mem[66] = MSB of smallest absolute value difference among pairs;
+mem[67] = LSB.
+mem[68] = MSB of largest absolute value difference among
 pairs, mem[69] = LSB.
 """
 
@@ -16,164 +16,700 @@ from bitstring import BitArray
 from util import Machine
 
 
-def main() -> int:
-    vm = Machine()
+def positive_op_dist(vm: Machine) -> None:
+    """returns the distance between two positive ops. assumes they are stored as
+        mem[128] = msb1
+        mem[129] = lsb1
+        mem[130] = msb2
+        mem[131] = lsb2
+    and returns the result as
+        mem[128] = dist msb
+        mem[129] = dist lsb
+    preserves r0, r1
+    """
+    # r2 <- MSB2 addr
+    vm.ldi_I(BitArray(uint=130, length=8))
+    vm.sto_R("r2")
 
-    # r1 will hold the msb of the min
-    vm.set_reg("r1", BitArray(uint=255, length=8))        # mov r1, #255
+    # r2 <- MSB2
+    vm.ld_R("r2")
+    vm.sto_R("r2")
 
-    # r2 will hold the lsb of the min
-    vm.set_reg("r2", BitArray(uint=255, length=8))        # mov r2, #255
+    # r3 <- MSB1 addr
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r3")
 
-    # r3 will hold the msb of the max
-    vm.set_reg("r3", BitArray(uint=0, length=8))          # mov r3, #0
+    # acc <- MSB1
+    vm.ld_R("r3")
 
-    # r4 will hold the lsb of the max
-    vm.set_reg("r4", BitArray(uint=0, length=8))          # mov r4, #0
+    vm.cmp_R("r2")
+    # if msb1 < msb2
+    if vm.sign_flag[0]:
+        # r2 <- msb2; r3 <- lsb2; r4 <- msb1; r5 <- lsb1
+        # r4 <- msb1
+        vm.sto_R("r4")
+
+        # r3 <- lsb2 addr
+        vm.ldi_I(BitArray(uint=131, length=8))
+        vm.sto_R("r3")
+
+        # r3 <- lsb2
+        vm.ld_R("r3")
+        vm.sto_R("r3")
+
+        # r5 <- lsb1 addr
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r5")
+
+        # r5 <- lsb1
+        vm.ld_R("r5")
+        vm.sto_R("r5")
+
+    # if msb1 > msb2 (not less than or equal)
+    elif not vm.zero_flag[0]:
+        # r2 <- msb1; r3 <- lsb1; r4 <- msb2; r5 <- lsb2
+        # r2 <- msb1
+        vm.sto_R("r2")
+
+        # r3 <- lsb1 addr
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r3")
+
+        # r3 <- lsb1
+        vm.ld_R("r3")
+        vm.sto_R("r3")
+
+        # r4 <- msb2 addr
+        vm.ldi_I(BitArray(uint=130, length=8))
+        vm.sto_R("r4")
+
+        # r4 <- msb2
+        vm.ld_R("r4")
+        vm.sto_R("r4")
+
+        # r5 <- lsb2 addr
+        vm.ldi_I(BitArray(uint=131, length=8))
+        vm.sto_R("r5")
+
+        # r5 <- lsb2
+        vm.ld_R("r5")
+        vm.sto_R("r5")
+
+    # now we need to compare lsbs
+    else:
+        # r2 <- lsb2 addr
+        vm.ldi_I(BitArray(uint=131, length=8))
+        vm.sto_R("r2")
+
+        # r2 <- lsb2
+        vm.ld_R("r2")
+        vm.sto_R("r2")
+
+        # r3 <- lsb1 addr
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r3")
+
+        # acc <- lsb1
+        vm.ld_R("r3")
+
+        vm.cmp_R("r2")
+        # if lsb1 < lsb2 (and msbs are guaranteed equal)
+        if vm.carry_flag[0]:
+            # r2 <- msb2; r3 <- lsb2; r4 <- msb1; r5 <- lsb1
+            # r5 <- lsb1
+            vm.sto_R("r5")
+
+            # r3 <- lsb2
+            vm.mov_R("r2")
+            vm.sto_R("r3")
+
+            # r2 <- msb2 addr
+            vm.ldi_I(BitArray(uint=130, length=8))
+            vm.sto_R("r2")
+
+            # r2 <- msb2
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+
+            # r4 <- msb1 addr
+            vm.ldi_I(BitArray(uint=128, length=8))
+            vm.sto_R("r4")
+
+            # r4 <- msb1
+            vm.ld_R("r4")
+            vm.sto_R("r4")
+
+        # at this point, we know op1 >= op2
+        else:
+            # r2 <- msb1; r3 <- lsb1; r4 <- msb2; r5 <- lsb2
+            # r3 <- lsb1
+            vm.sto_R("r3")
+
+            # r5 <- lsb2
+            vm.mov_R("r2")
+            vm.sto_R("r5")
+
+            # r2 <- msb1 addr
+            vm.ldi_I(BitArray(uint=128, length=8))
+            vm.sto_R("r2")
+
+            # r2 <- msb1
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+
+            # r4 <- msb2 addr
+            vm.ldi_I(BitArray(uint=130, length=8))
+            vm.sto_R("r4")
+
+            # r4 <- msb2
+            vm.ld_R("r4")
+            vm.sto_R("r4")
+
+    # POSTCONDITION: [r2 r3] >= [r4 r5]
+
+    # now we negate [r4 r5]
+    vm.mov_R("r4")
+    vm.inv_R()
+    vm.sto_R("r4")
+    vm.mov_R("r5")
+    vm.inv_R()
+    vm.addi_I(BitArray(uint=1, length=8))
+    vm.sto_R("r5")
+    if vm.carry_flag[0]:
+        vm.mov_R("r4")
+        vm.addi_I(BitArray(uint=1, length=8))
+        vm.sto_R("r4")
+
+    # add [r2 r3] + [r4 r5]
+    vm.mov_R("r3")
+    vm.add_R("r5")
+    vm.sto_R("r3")
+    vm.mov_R("r2")
+    if vm.carry_flag[0]:
+        vm.addi_I(BitArray(uint=1, length=8))
+    vm.add_R("r4")
+    vm.sto_R("r2")
+
+    # POSTCONDITION [r2 r3] is the arithmetic distance between op1 and op2
+
+    # store in memory
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r2")
+    vm.st_R("r4")
+    vm.ldi_I(BitArray(uint=129, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r3")
+    vm.st_R("r4")
+
+
+def negative_op_dist(vm: Machine) -> None:
+    """returns the distance between two negative ops. assumes they are stored as
+        mem[128] = msb1
+        mem[129] = lsb1
+        mem[130] = msb2
+        mem[131] = lsb2
+    and returns the result as
+        mem[128] = dist msb
+        mem[129] = dist lsb
+    preserves r0, r1
+    """
+    # make op1 positive
+    # r2 <- msb1
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r2")
+    vm.ld_R("r2")
+    vm.sto_R("r2")
+
+    # acc <- lsb1
+    vm.ldi_I(BitArray(uint=129, length=8))
+    vm.sto_R("r3")
+    vm.ld_R("r3")
+
+    # negate
+    vm.inv_R()
+    vm.sto_R("r3")
+    vm.mov_R("r2")
+    vm.inv_R()
+    vm.sto_R("r2")
+    vm.mov_R("r3")
+    vm.addi_I(BitArray(uint=1, length=8))
+    vm.sto_R("r3")
+    if vm.carry_flag[0]:
+        vm.mov_R("r2")
+        vm.addi_I(BitArray(uint=1, length=8))
+        vm.sto_R("r2")
+
+    # postcondition: [r2 r3] is negated [mem[128] mem[129]]
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r2")
+    vm.st_R("r4")
+    vm.ldi_I(BitArray(uint=129, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r3")
+    vm.st_R("r4")
+
+    # make op2 positive
+    # r2 <- msb2
+    vm.ldi_I(BitArray(uint=130, length=8))
+    vm.sto_R("r2")
+    vm.ld_R("r2")
+    vm.sto_R("r2")
+
+    # acc <- lsb2
+    vm.ldi_I(BitArray(uint=131, length=8))
+    vm.sto_R("r3")
+    vm.ld_R("r3")
+
+    # negate
+    vm.inv_R()
+    vm.sto_R("r3")
+    vm.mov_R("r2")
+    vm.inv_R()
+    vm.sto_R("r2")
+    vm.mov_R("r3")
+    vm.addi_I(BitArray(uint=1, length=8))
+    vm.sto_R("r3")
+    if vm.carry_flag[0]:
+        vm.mov_R("r2")
+        vm.addi_I(BitArray(uint=1, length=8))
+        vm.sto_R("r2")
+
+    # postcondition: [r2 r3] is negated [mem[130] mem[131]]
+    vm.ldi_I(BitArray(uint=130, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r2")
+    vm.st_R("r4")
+    vm.ldi_I(BitArray(uint=131, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r3")
+    vm.st_R("r4")
+
+    positive_op_dist(vm)
+
+
+def diff_sign_dist(vm: Machine) -> None:
+    """returns the distance between two ops of different signs. assumes they are
+    stored as
+        mem[128] = msb1
+        mem[129] = lsb1
+        mem[130] = msb2
+        mem[131] = lsb2
+    and returns the result as
+        mem[128] = dist msb
+        mem[129] = dist lsb
+    preserves r0, r1
+    """
+    # acc <- msb1
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r2")
+    vm.ld_R("r2")
+
+    # is op1 negative?
+    vm.lsh_I(BitArray(uint=1, length=8))
+    if vm.carry_flag[0]:
+        # r2 <- msb1
+        vm.ldi_I(BitArray(uint=128, length=8))
+        vm.sto_R("r2")
+        vm.ld_R("r2")
+        vm.sto_R("r2")
+
+        # acc <- lsb1
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r3")
+        vm.ld_R("r3")
+
+        # negate
+        vm.inv_R()
+        vm.sto_R("r3")
+        vm.mov_R("r2")
+        vm.inv_R()
+        vm.sto_R("r2")
+        vm.mov_R("r3")
+        vm.addi_I(BitArray(uint=1, length=8))
+        vm.sto_R("r3")
+        if vm.carry_flag[0]:
+            vm.mov_R("r2")
+            vm.addi_I(BitArray(uint=1, length=8))
+            vm.sto_R("r2")
+
+        # r4 <- msb2
+        vm.ldi_I(BitArray(uint=130, length=8))
+        vm.sto_R("r4")
+        vm.ld_R("r4")
+        vm.sto_R("r4")
+
+        # r5 <- lsb2
+        vm.ldi_I(BitArray(uint=131, length=8))
+        vm.sto_R("r5")
+        vm.ld_R("r5")
+        vm.sto_R("r5")
+    else:
+        # r2 <- msb2
+        vm.ldi_I(BitArray(uint=130, length=8))
+        vm.sto_R("r2")
+        vm.ld_R("r2")
+        vm.sto_R("r2")
+
+        # acc <- lsb2
+        vm.ldi_I(BitArray(uint=131, length=8))
+        vm.sto_R("r3")
+        vm.ld_R("r3")
+
+        # negate
+        vm.inv_R()
+        vm.sto_R("r3")
+        vm.mov_R("r2")
+        vm.inv_R()
+        vm.sto_R("r2")
+        vm.mov_R("r3")
+        vm.addi_I(BitArray(uint=1, length=8))
+        vm.sto_R("r3")
+        if vm.carry_flag[0]:
+            vm.mov_R("r2")
+            vm.addi_I(BitArray(uint=1, length=8))
+            vm.sto_R("r2")
+
+        # r4 <- msb1
+        vm.ldi_I(BitArray(uint=128, length=8))
+        vm.sto_R("r4")
+        vm.ld_R("r4")
+        vm.sto_R("r4")
+
+        # r5 <- lsb1
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r5")
+        vm.ld_R("r5")
+        vm.sto_R("r5")
+
+    # postcondition: [r2 r3] [r4 r5] are the ops to be added
+    vm.mov_R("r3")
+    vm.add_R("r5")
+    vm.sto_R("r3")
+    vm.mov_R("r2")
+    if vm.carry_flag[0]:
+        vm.addi_I(BitArray(uint=1, length=8))
+    vm.add_R("r4")
+    vm.sto_R("r2")
+
+    # store in memory
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r2")
+    vm.st_R("r4")
+    vm.ldi_I(BitArray(uint=129, length=8))
+    vm.sto_R("r4")
+    vm.mov_R("r3")
+    vm.st_R("r4")
+
+
+def update_min_max(vm: Machine) -> None:
+    """update the minimum and maximum distance values. assumes distances are
+    stored as
+    mem[128] = curr msb
+    mem[129] = curr lsb
+    mem[66] = min msb
+    mem[67] = min lsb
+    mem[68] = max msb
+    mem[69] = max lsb
+    """
+    # update min
+    # r2 <- min msb
+    vm.ldi_I(BitArray(uint=66, length=8))
+    vm.sto_R("r2")
+    vm.ld_R("r2")
+    vm.sto_R("r2")
+
+    # acc <- curr msb
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r3")
+    vm.ld_R("r3")
+
+    # compare msbs
+    vm.cmp_R("r2")
+    if vm.carry_flag[0]:
+        # update min value
+        # r2 <- curr msb
+        vm.ldi_I(BitArray(uint=128, length=8))
+        vm.sto_R("r2")
+        vm.ld_R("r2")
+        vm.sto_R("r2")
+        # r3 <- curr lsb
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r3")
+        vm.ld_R("r3")
+        vm.sto_R("r3")
+        # update min msb
+        vm.ldi_I(BitArray(uint=66, length=8))
+        vm.sto_R("r4")
+        vm.mov_R("r2")
+        vm.st_R("r4")
+        # update min lsb
+        vm.ldi_I(BitArray(uint=67, length=8))
+        vm.sto_R("r4")
+        vm.mov_R("r3")
+        vm.st_R("r4")
+    elif vm.zero_flag[0]:
+        # compare lsbs
+        # r2 <- min lsb
+        vm.ldi_I(BitArray(uint=67, length=8))
+        vm.sto_R("r2")
+        vm.ld_R("r2")
+        vm.sto_R("r2")
+
+        # acc <- curr lsb
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r3")
+        vm.ld_R("r3")
+
+        # compare lsbs
+        vm.cmp_R("r2")
+        if vm.carry_flag[0]:
+            # update min value
+            # r2 <- curr msb
+            vm.ldi_I(BitArray(uint=128, length=8))
+            vm.sto_R("r2")
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+            # r3 <- curr lsb
+            vm.ldi_I(BitArray(uint=129, length=8))
+            vm.sto_R("r3")
+            vm.ld_R("r3")
+            vm.sto_R("r3")
+            # update min msb
+            vm.ldi_I(BitArray(uint=66, length=8))
+            vm.sto_R("r4")
+            vm.mov_R("r2")
+            vm.st_R("r4")
+            # update min lsb
+            vm.ldi_I(BitArray(uint=67, length=8))
+            vm.sto_R("r4")
+            vm.mov_R("r3")
+            vm.st_R("r4")
+
+    # update max
+    # r2 <- curr msb
+    vm.ldi_I(BitArray(uint=128, length=8))
+    vm.sto_R("r2")
+    vm.ld_R("r2")
+    vm.sto_R("r2")
+
+    # acc <- max msb
+    vm.ldi_I(BitArray(uint=68, length=8))
+    vm.sto_R("r3")
+    vm.ld_R("r3")
+
+    # compare msbs
+    vm.cmp_R("r2")
+    if vm.carry_flag[0]:
+        # update max value
+        # r2 <- curr msb
+        vm.ldi_I(BitArray(uint=128, length=8))
+        vm.sto_R("r2")
+        vm.ld_R("r2")
+        vm.sto_R("r2")
+        # r3 <- curr lsb
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r3")
+        vm.ld_R("r3")
+        vm.sto_R("r3")
+        # update max msb
+        vm.ldi_I(BitArray(uint=68, length=8))
+        vm.sto_R("r4")
+        vm.mov_R("r2")
+        vm.st_R("r4")
+        # update min lsb
+        vm.ldi_I(BitArray(uint=69, length=8))
+        vm.sto_R("r4")
+        vm.mov_R("r3")
+        vm.st_R("r4")
+    elif vm.zero_flag[0]:
+        # compare lsbs
+        # r2 <- curr lsb
+        vm.ldi_I(BitArray(uint=129, length=8))
+        vm.sto_R("r2")
+        vm.ld_R("r2")
+        vm.sto_R("r2")
+
+        # acc <- max lsb
+        vm.ldi_I(BitArray(uint=69, length=8))
+        vm.sto_R("r3")
+        vm.ld_R("r3")
+
+        # compare lsbs
+        vm.cmp_R("r2")
+        if vm.carry_flag[0]:
+            # update min value
+            # r2 <- curr msb
+            vm.ldi_I(BitArray(uint=128, length=8))
+            vm.sto_R("r2")
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+            # r3 <- curr lsb
+            vm.ldi_I(BitArray(uint=129, length=8))
+            vm.sto_R("r3")
+            vm.ld_R("r3")
+            vm.sto_R("r3")
+            # update min msb
+            vm.ldi_I(BitArray(uint=68, length=8))
+            vm.sto_R("r4")
+            vm.mov_R("r2")
+            vm.st_R("r4")
+            # update min lsb
+            vm.ldi_I(BitArray(uint=69, length=8))
+            vm.sto_R("r4")
+            vm.mov_R("r3")
+            vm.st_R("r4")
+
+
+def test() -> None:
+    import random as _random
+
+    def _run(values: list[int], label: str) -> None:
+        vm = Machine()
+        for idx, v in enumerate(values):
+            v_u = v & 0xFFFF
+            vm.mem[idx * 2] = BitArray(uint=(v_u >> 8) & 0xFF, length=8)
+            vm.mem[idx * 2 + 1] = BitArray(uint=v_u & 0xFF, length=8)
+        main(vm)
+        diffs = [
+            abs(values[i] - values[j]) for i in range(32) for j in range(i + 1, 32)
+        ]
+        got_min = (vm.mem[66].uint << 8) | vm.mem[67].uint
+        got_max = (vm.mem[68].uint << 8) | vm.mem[69].uint
+        assert got_min == min(diffs), (
+            f"{label}: min wrong (got {got_min}, expected {min(diffs)})"
+        )
+        assert got_max == max(diffs), (
+            f"{label}: max wrong (got {got_max}, expected {max(diffs)})"
+        )
+
+    _run([0] * 32, "all zeros")
+    _run([100] * 32, "all same")
+    _run(list(range(32)), "sequential positive")
+    _run(list(range(-32, 0)), "sequential negative")
+    _run([0x7FFF, -0x8000] + [0] * 30, "extremes with zeros")
+    _run([0x7FFF] * 16 + [-0x8000] * 16, "half max half min")
+    _random.seed(42)
+    _run([_random.randint(-0x8000, 0x7FFF) for _ in range(32)], "random seed 42")
+    print("All tests passed!")
+
+
+def main(vm: Machine | None = None) -> int:
+    if vm is None:
+        vm = Machine()
+    # intialize min and max values
+    # min msb
+    vm.ldi_I(BitArray(uint=66, length=8))
+    vm.sto_R("r0")
+    vm.ldi_I(BitArray(uint=255, length=8))
+    vm.st_R("r0")
+    # min lsb
+    vm.ldi_I(BitArray(uint=67, length=8))
+    vm.sto_R("r0")
+    vm.ldi_I(BitArray(uint=255, length=8))
+    vm.st_R("r0")
+    # max msb
+    vm.ldi_I(BitArray(uint=68, length=8))
+    vm.sto_R("r0")
+    vm.ldi_I(BitArray(uint=0, length=8))
+    vm.st_R("r0")
+    # max lsb
+    vm.ldi_I(BitArray(uint=69, length=8))
+    vm.sto_R("r0")
+    vm.ldi_I(BitArray(uint=0, length=8))
+    vm.st_R("r0")
 
     for i in range(32):
         for j in range(i + 1, 32):
-            # r5 will hold the msb of num1
-            vm.get_mem("r5", 2 * i)                       # mov r5, [2 * i]
+            # r0 and r1 reserved for i, j
+            vm.ldi_I(BitArray(uint=i, length=8))
+            vm.sto_R("r0")
+            vm.ldi_I(BitArray(uint=j, length=8))
+            vm.sto_R("r1")
 
-            # r6 will hold the lsb of num1
-            vm.get_mem("r6", 2 * i + 1)                   # mov r6, [2 * i + 1]
+            # store vals in memory
+            # mem[128] <- msb1
+            vm.mov_R("r0")
+            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.sto_R("r2")
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+            vm.ldi_I(BitArray(uint=128, length=8))
+            vm.sto_R("r3")
+            vm.mov_R("r2")
+            vm.st_R("r3")
+            # mem[129] <- lsb1
+            vm.mov_R("r0")
+            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.addi_I(BitArray(uint=1, length=8))
+            vm.sto_R("r2")
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+            vm.ldi_I(BitArray(uint=129, length=8))
+            vm.sto_R("r3")
+            vm.mov_R("r2")
+            vm.st_R("r3")
+            # mem[130] <- msb2
+            vm.mov_R("r1")
+            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.sto_R("r2")
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+            vm.ldi_I(BitArray(uint=130, length=8))
+            vm.sto_R("r3")
+            vm.mov_R("r2")
+            vm.st_R("r3")
+            # mem[131] <- lsb2
+            vm.mov_R("r1")
+            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.addi_I(BitArray(uint=1, length=8))
+            vm.sto_R("r2")
+            vm.ld_R("r2")
+            vm.sto_R("r2")
+            vm.ldi_I(BitArray(uint=131, length=8))
+            vm.sto_R("r3")
+            vm.mov_R("r2")
+            vm.st_R("r3")
 
-            # r7 will hold the msb of num2
-            vm.get_mem("r7", 2 * j)                       # mov r7, [2 * j]
-
-            # r8 will hold the lsb of num2
-            vm.get_mem("r8", 2 * j + 1)                   # mov r8, [2 * j + 1]
-
-            # signed-compare the msbs
-            vm.scmp("r5", "r7")                           # scmp r5, r7
-
-            # are they equal?
-            if vm.zero_flag.uint == 1:
-                # unsigned-compare the lsbs
-                vm.ucmp("r6", "r8")                       # ucmp r6, r8
-
-                # is num1 < num2?
-                if vm.sign_flag.uint == 1:
-                    # r9 will hold the lesser msb
-                    vm.set_reg("r9", vm.get_reg("r5"))    # mov r9, r5
-
-                    # r10 will hold the lesser lsb
-                    vm.set_reg("r10", vm.get_reg("r6"))   # mov r10, r6
-
-                    # r11 will hold the greater msb
-                    vm.set_reg("r11", vm.get_reg("r7"))   # mov r11, r7
-
-                    # r12 will hold the greater lsb
-                    vm.set_reg("r12", vm.get_reg("r8"))   # mov r12, r8
+            # acc <- msb1
+            vm.mov_R("r0")
+            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.sto_R("r2")
+            vm.ld_R("r2")
+            # is it negative?
+            vm.lsh_I(BitArray(uint=1, length=8))
+            if vm.carry_flag[0]:
+                # acc <- msb2
+                vm.mov_R("r1")
+                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.sto_R("r2")
+                vm.ld_R("r2")
+                # is it negative?
+                vm.lsh_I(BitArray(uint=1, length=8))
+                if vm.carry_flag[0]:
+                    negative_op_dist(vm)
                 else:
-                    # r9 will hold the lesser msb
-                    vm.set_reg("r9", vm.get_reg("r7"))    # mov r9, r7
-
-                    # r10 will hold the lesser lsb
-                    vm.set_reg("r10", vm.get_reg("r8"))   # mov r10, r8
-
-                    # r11 will hold the greater msb
-                    vm.set_reg("r11", vm.get_reg("r5"))   # mov r11, r5
-
-                    # r12 will hold the greater lsb
-                    vm.set_reg("r12", vm.get_reg("r6"))   # mov r12, r6
-            
-            # is num1 < num2?
-            elif vm.sign_flag.uint == 1:
-                # r9 will hold the lesser msb
-                vm.set_reg("r9", vm.get_reg("r5"))        # mov r9, r5
-
-                # r10 will hold the lesser lsb
-                vm.set_reg("r10", vm.get_reg("r6"))       # mov r10, r6
-
-                # r11 will hold the greater msb
-                vm.set_reg("r11", vm.get_reg("r7"))       # mov r11, r7
-
-                # r12 will hold the greater lsb
-                vm.set_reg("r12", vm.get_reg("r8"))       # mov r12, r8
+                    diff_sign_dist(vm)
             else:
-                # r9 will hold the lesser msb
-                vm.set_reg("r9", vm.get_reg("r7"))        # mov r9, r7
+                # acc <- msb2
+                vm.mov_R("r1")
+                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.sto_R("r2")
+                vm.ld_R("r2")
+                # is it negative?
+                vm.lsh_I(BitArray(uint=1, length=8))
+                if vm.carry_flag[0]:
+                    diff_sign_dist(vm)
+                else:
+                    positive_op_dist(vm)
 
-                # r10 will hold the lesser lsb
-                vm.set_reg("r10", vm.get_reg("r8"))       # mov r10, r8
+            update_min_max(vm)
 
-                # r11 will hold the greater msb
-                vm.set_reg("r11", vm.get_reg("r5"))       # mov r11, r5
-
-                # r12 will hold the greater lsb
-                vm.set_reg("r12", vm.get_reg("r6"))       # mov r12, r6
-            
-            # negate the lesser num
-            vm.invert_reg("r9")                           # inv r9
-            vm.invert_reg("r10")                          # inv r10
-            vm.set_reg("r16", BitArray(uint=1, length=8)) # mov r16, #1
-            vm.add("r10", "r10", "r16")                   # add r10, r10, r16
-            if vm.carry_flag.uint == 1:
-                vm.add("r9", "r9", "r16")                 # add r9, r9, r16
-            
-            # r5 will hold the dist msb
-            vm.add("r5", "r11", "r9")                     # add r5, r11, r9
-
-            # r6 will hold the dist lsb
-            vm.add("r6", "r12", "r10")                    # add r6, r12, r10
-
-            # propogate carry
-            if vm.carry_flag.uint == 1:
-                vm.add("r5", "r5", "r16")                # add r5, r5, r16
-            
-            # unsigned-compare dist msb and min msb
-            vm.ucmp("r5", "r1")                           # ucmp r5, r1
-            
-            # are they equal?
-            if vm.zero_flag.uint == 1:
-                # compare lsbs
-                vm.ucmp("r6", "r2")
-
-                # dist < min?
-                if vm.sign_flag.uint == 1:
-                    # set min = dist
-                    vm.set_reg("r1", vm.get_reg("r5"))    # mov r1, r5
-                    vm.set_reg("r2", vm.get_reg("r6"))    # mov r2, r6
-
-            # is dist < min?
-            elif vm.sign_flag.uint == 1:
-                # set min = dist
-                vm.set_reg("r1", vm.get_reg("r5"))        # mov r1, r5
-                vm.set_reg("r2", vm.get_reg("r6"))        # mov r2, r6
-            
-            # unsigned-compare max msb and dist msb
-            vm.ucmp("r3", "r5")                           # ucmp r3, r5
-
-            # are they equal?
-            if vm.zero_flag.uint == 1:
-                # compare lsbs
-                vm.ucmp("r4", "r6")                       # ucmp r4, r6
-
-                # is max < dist?
-                if vm.sign_flag.uint == 1:
-                    # set max = dist
-                    vm.set_reg("r3", vm.get_reg("r5"))    # mov r3, r5
-                    vm.set_reg("r4", vm.get_reg("r6"))    # mov r4, r6
-                
-            # is max < dist?
-            elif vm.sign_flag.uint == 1:
-                # set max = dist
-                vm.set_reg("r3", vm.get_reg("r5"))        # mov r3, r5
-                vm.set_reg("r4", vm.get_reg("r6"))        # mov r4, r6
-    
-    # write min to memory
-    vm.set_mem(66, "r1")                                  # mov [#66], r1
-    vm.set_mem(67, "r2")                                  # mov [#67], r2
-
-    # write max to memory
-    vm.set_mem(68, "r3")                                  # mov [#68], r3
-    vm.set_mem(69, "r4")                                  # mov [#69], r4
-
-    print(f"The minimum arithmetic distance was {256 * vm.mem[66].uint + vm.mem[67].uint}")
-    print(f"The maximum arithmetic distance was {256 * vm.mem[68].uint + vm.mem[69].uint}")
+    return 0
 
 
 if __name__ == "__main__":
+    test()
     sys.exit(main())
