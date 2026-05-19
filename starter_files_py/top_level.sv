@@ -14,28 +14,30 @@ module top_level (
     logic        z_flag, s_flag, c_flag, ov_flag;
     logic        reg_write, acc_write;
     logic        mem_read, mem_write;
-    logic        alu_src, is_branch, branch_type;
+    logic        alu_src;
+    logic [1:0]  branch_cond;   // 2-bit: 00=BEQ, 01=BLT, 10=BCS
     logic [3:0]  imm;
     logic [7:0]  imm_ext;
 
-    // zero-extend immediate
-    assign imm_ext = {4'b0000, imm};
+    // sign-extend 4-bit immediate to 8 bits
+    assign imm_ext = {{4{imm[3]}}, imm};
 
     // instantiate modules
     program_counter pc_unit (
-        .clk        (clk),
-        .start      (start),
-        .z_flag     (z_flag),
-        .s_flag     (s_flag),
-        .instr      (instr),
-        .reg_out    (reg_out),
-        .done       (done),
-        .pc         (pc)
+        .clk         (clk),
+        .start       (start),
+        .z_flag      (z_flag),
+        .s_flag      (s_flag),
+        .c_flag      (c_flag),      // ← added
+        .instr       (instr),
+        .reg_out     (reg_out),
+        .done        (done),
+        .pc          (pc)
     );
 
     instruction_memory imem (
-        .pc         (pc),
-        .instr      (instr)
+        .pc          (pc),
+        .instr       (instr)
     );
 
     control_decoder ctrl (
@@ -46,51 +48,50 @@ module top_level (
         .mem_write   (mem_write),
         .alu_op      (alu_op),
         .alu_src     (alu_src),
-        .is_branch   (is_branch),
-        .branch_type (branch_type),
+        .branch_cond (branch_cond), // ← 2-bit now
         .imm         (imm)
     );
 
     register_file regfile (
-        .clk        (clk),
-        .reg_addr   (instr[2:0]),
-        .reg_write  (reg_write),
-        .acc        (acc),
-        .reg_out    (reg_out)
+        .clk         (clk),
+        .reg_addr    (instr[2:0]),
+        .reg_write   (reg_write),
+        .acc         (acc),
+        .reg_out     (reg_out)
     );
 
     mux_alu_src mux_a (
-        .reg_out    (reg_out),
-        .imm_ext    (imm_ext),
-        .sel        (alu_src),
-        .alu_in     (alu_in)
+        .reg_out     (reg_out),
+        .imm_ext     (imm_ext),
+        .sel         (alu_src),
+        .alu_in      (alu_in)
     );
 
     alu alu_unit (
-        .acc        (acc),
-        .alu_in     (alu_in),
-        .alu_op     (alu_op),
-        .result     (alu_result),
-        .z_flag     (z_flag),
-        .s_flag     (s_flag),
-        .c_flag     (c_flag),
-        .ov_flag    (ov_flag)
+        .acc         (acc),
+        .alu_in      (alu_in),
+        .alu_op      (alu_op),
+        .result      (alu_result),
+        .z_flag      (z_flag),
+        .s_flag      (s_flag),
+        .c_flag      (c_flag),
+        .ov_flag     (ov_flag)
     );
 
     data_memory dmem (
-        .clk        (clk),
-        .addr       (reg_out),
-        .data_in    (acc),
-        .mem_read   (mem_read),
-        .mem_write  (mem_write),
-        .data_out   (mem_data_out)
+        .clk         (clk),
+        .addr        (reg_out),
+        .data_in     (acc),
+        .mem_read    (mem_read),
+        .mem_write   (mem_write),
+        .data_out    (mem_data_out)
     );
 
     mux_acc_src mux_b (
-        .alu_result (alu_result),
-        .mem_data   (mem_data_out),
-        .sel        (mem_read),
-        .acc_next   (acc_next)
+        .alu_result  (alu_result),
+        .mem_data    (mem_data_out),
+        .sel         (mem_read),
+        .acc_next    (acc_next)
     );
 
     // ACC register
