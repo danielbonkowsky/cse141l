@@ -307,7 +307,7 @@ def diff_sign_dist(vm: Machine) -> None:
     vm.ld_R("r2")
 
     # is op1 negative?
-    vm.lsh_I(BitArray(uint=1, length=8))
+    vm.shf_I(BitArray(int=1, length=8))
     if vm.carry_flag[0]:
         # r2 <- msb1
         vm.ldi_I(BitArray(uint=128, length=8))
@@ -632,7 +632,7 @@ def main(vm: Machine | None = None) -> int:
             # store vals in memory
             # mem[128] <- msb1
             vm.mov_R("r0")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.sto_R("r2")
             vm.ld_R("r2")
             vm.sto_R("r2")
@@ -642,7 +642,7 @@ def main(vm: Machine | None = None) -> int:
             vm.st_R("r3")
             # mem[129] <- lsb1
             vm.mov_R("r0")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r2")
             vm.ld_R("r2")
@@ -653,7 +653,7 @@ def main(vm: Machine | None = None) -> int:
             vm.st_R("r3")
             # mem[130] <- msb2
             vm.mov_R("r1")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.sto_R("r2")
             vm.ld_R("r2")
             vm.sto_R("r2")
@@ -663,7 +663,7 @@ def main(vm: Machine | None = None) -> int:
             vm.st_R("r3")
             # mem[131] <- lsb2
             vm.mov_R("r1")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r2")
             vm.ld_R("r2")
@@ -675,19 +675,19 @@ def main(vm: Machine | None = None) -> int:
 
             # acc <- msb1
             vm.mov_R("r0")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.sto_R("r2")
             vm.ld_R("r2")
             # is it negative?
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             if vm.carry_flag[0]:
                 # acc <- msb2
                 vm.mov_R("r1")
-                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.shf_I(BitArray(int=1, length=8))
                 vm.sto_R("r2")
                 vm.ld_R("r2")
                 # is it negative?
-                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.shf_I(BitArray(int=1, length=8))
                 if vm.carry_flag[0]:
                     negative_op_dist(vm)
                 else:
@@ -695,11 +695,11 @@ def main(vm: Machine | None = None) -> int:
             else:
                 # acc <- msb2
                 vm.mov_R("r1")
-                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.shf_I(BitArray(int=1, length=8))
                 vm.sto_R("r2")
                 vm.ld_R("r2")
                 # is it negative?
-                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.shf_I(BitArray(int=1, length=8))
                 if vm.carry_flag[0]:
                     diff_sign_dist(vm)
                 else:

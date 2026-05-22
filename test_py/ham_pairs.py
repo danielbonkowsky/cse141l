@@ -38,7 +38,7 @@ def main(vm: Machine | None = None) -> int:
 
             # r5 <- MSB1 addr
             vm.mov_R("r0")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.sto_R("r5")
 
             # r5 <- MSB1
@@ -47,7 +47,7 @@ def main(vm: Machine | None = None) -> int:
 
             # r6 <- MSB2 addr
             vm.mov_R("r1")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.sto_R("r6")
 
             # acc <- MSB2
@@ -59,7 +59,7 @@ def main(vm: Machine | None = None) -> int:
             # count how many ones
             for _ in range(8):
                 # r5 will be loop counter in real asm
-                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.shf_I(BitArray(int=1, length=8))
                 if vm.carry_flag[0]:
                     # save acc in r6
                     vm.sto_R("r6")
@@ -76,7 +76,7 @@ def main(vm: Machine | None = None) -> int:
 
             # r5 <- LSB1 addr
             vm.mov_R("r0")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r5")
 
@@ -86,7 +86,7 @@ def main(vm: Machine | None = None) -> int:
 
             # r6 <- LSB2 addr
             vm.mov_R("r1")
-            vm.lsh_I(BitArray(uint=1, length=8))
+            vm.shf_I(BitArray(int=1, length=8))
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r6")
 
@@ -99,7 +99,7 @@ def main(vm: Machine | None = None) -> int:
             # count how many ones
             for _ in range(8):
                 # r5 will be loop counter in real asm
-                vm.lsh_I(BitArray(uint=1, length=8))
+                vm.shf_I(BitArray(int=1, length=8))
                 if vm.carry_flag[0]:
                     # save acc in r6
                     vm.sto_R("r6")

@@ -219,59 +219,34 @@ class Machine:
         self.zero_flag = BitArray(bin="1") if result_wrapped == 0 else BitArray(bin="0")
         self.sign_flag = BitArray(bin="1") if res_sign else BitArray(bin="0")
 
-    def lsh_I(self, val: BitArray) -> None:
-        """performs a logical shift left on the accumulator.
+    def shf_I(self, val: BitArray) -> None:
+        """shift the accumulator left (positive val) or right (negative val).
 
         args:
-            val: the number of bits to shift.
+            val: signed shift amount; positive shifts left, negative shifts right.
 
         notes:
             * carry_flag: set to the last bit shifted out.
             * overflow_flag: set if the sign bit changed during the shift.
-              undefined for shifts > 1.
+              undefined for |shift| > 1.
             * zero_flag: set if the result is zero
             * sign_flag: msb of the result
         """
-        if val.uint < 8 and self.acc[val.uint - 1]:
-            self.carry_flag = BitArray(bin="1")
+        n = val.int
+        if n > 0:
+            self.carry_flag = BitArray(bin="1") if n < 8 and self.acc[n - 1] else BitArray(bin="0")
+            if n == 1:
+                self.overflow_flag = BitArray(bin="1") if self.acc[0] != self.acc[1] else BitArray(bin="0")
+            result = self.acc << n
+        elif n < 0:
+            m = -n
+            self.carry_flag = BitArray(bin="1") if m < 8 and self.acc[8 - m] else BitArray(bin="0")
+            if m == 1:
+                self.overflow_flag = BitArray(bin="1") if self.acc[0] else BitArray(bin="0")
+            result = self.acc >> m
         else:
-            self.carry_flag = BitArray(bin="0")
-        if val.uint == 1:
-            if self.acc[0] == self.acc[1]:
-                self.overflow_flag = BitArray(bin="0")
-            else:
-                self.overflow_flag = BitArray(bin="1")
+            result = self.acc.copy()
 
-        result = self.acc << val.uint
-        self.zero_flag = BitArray(bin="1") if result.uint == 0 else BitArray(bin="0")
-        self.sign_flag = BitArray(bin="1") if result[0] else BitArray(bin="0")
-
-        self._set_acc_I(result)
-
-    def rsh_I(self, val: BitArray) -> None:
-        """performs a logical shift right on the accumulator.
-
-        args:
-            val: the number of bits to shift.
-
-        notes:
-            * carry_flag: set to the last bit shifted out.
-            * overflow_flag: set if the sign bit changed during the shift.
-              Undefined for shifts > 1.
-            * zero_flag: set if the result is zero
-            * sign_flag: msb of the result
-        """
-        if val.uint < 8 and self.acc[8 - val.uint]:
-            self.carry_flag = BitArray(bin="1")
-        else:
-            self.carry_flag = BitArray(bin="0")
-        if val.uint == 1:
-            if self.acc[0]:
-                self.overflow_flag = BitArray(bin="1")
-            else:
-                self.overflow_flag = BitArray(bin="0")
-
-        result = self.acc >> val.uint
         self.zero_flag = BitArray(bin="1") if result.uint == 0 else BitArray(bin="0")
         self.sign_flag = BitArray(bin="1") if result[0] else BitArray(bin="0")
 
@@ -316,39 +291,6 @@ class Machine:
         self.overflow_flag = BitArray(bin="1") if signed_overflow else BitArray(bin="0")
 
         self.zero_flag = BitArray(bin="1") if result_wrapped == 0 else BitArray(bin="0")
-        self.sign_flag = BitArray(bin="1") if res_sign else BitArray(bin="0")
-
-        self._set_acc_I(BitArray(uint=result_wrapped, length=8))
-
-    def subi_I(self, val: BitArray) -> None:
-        """subtracts an immediate value from the accumulator.
-
-        args:
-            val: the value to subtract
-
-        notes:
-            * carry_flag: set if there is an unsigned borrow
-            * overflow_flag: set if operands have opposite signs and result sign
-            differs from acc
-            * zero_flag: set if the result is zero
-            * sign_flag: msb of the result
-        """
-        acc_val = self.acc.uint
-        imm_val = val.uint
-        result = acc_val - imm_val
-
-        result_wrapped = result % 256
-
-        self.carry_flag = BitArray(bin="1") if acc_val < imm_val else BitArray(bin="0")
-
-        acc_sign = (acc_val >> 7) & 1
-        imm_sign = (imm_val >> 7) & 1
-        res_sign = (result_wrapped >> 7) & 1
-        signed_overflow = (acc_sign != imm_sign) and (res_sign != acc_sign)
-        self.overflow_flag = BitArray(bin="1") if signed_overflow else BitArray(bin="0")
-
-        self.zero_flag = BitArray(bin="1") if result_wrapped == 0 else BitArray(bin="0")
-
         self.sign_flag = BitArray(bin="1") if res_sign else BitArray(bin="0")
 
         self._set_acc_I(BitArray(uint=result_wrapped, length=8))
