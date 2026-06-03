@@ -10,8 +10,8 @@ CSE 141L course project: design and implement a custom 9-bit RISC processor call
 
 **Assemble an `.asm` file to `.mem`:**
 ```sh
-python program1/assembler.py program1/program1.asm         # writes program1.mem
-python program1/assembler.py program1/program1.asm out.mem # custom output path
+python assembler.py program1/program1.asm         # writes program1.mem
+python assembler.py program1/program1.asm out.mem # custom output path
 ```
 
 **Run Python program simulations / tests:**
@@ -79,15 +79,7 @@ Top.sv
 
 `python_implementations/util.py` defines the `Machine` class — a faithful Python model of the ISA. All programs in `python_implementations/` use it to prototype and verify logic before writing assembly or Verilog.
 
-Requires the `bitstring` package (`pip install bitstring`).
-
-## Assembler Notes
-
-There are **two assembler versions**:
-- `program1/assembler.py` — canonical, matches Milestone 2/3 ISA (use this one)
-- `python_implementations/assembler.py` — older version with different encoding (R/I split as separate types; only 8 registers; no `bne`/`bltu`)
-
-The canonical assembler supports multiple instructions per line separated by `;`, which the assembly files use heavily.
+Requires the `bitstring` package (`.venv/bin/activate` to activate virtual evironment).
 
 ## Memory Map (all programs start at address 0)
 
