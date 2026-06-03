@@ -14,6 +14,14 @@ class Machine:
         self.reg5 = BitArray(uint=random.getrandbits(8), length=8)
         self.reg6 = BitArray(uint=random.getrandbits(8), length=8)
         self.reg7 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg8 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg9 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg10 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg11 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg12 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg13 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg14 = BitArray(uint=random.getrandbits(8), length=8)
+        self.reg15 = BitArray(uint=random.getrandbits(8), length=8)
 
         self.zero_flag = BitArray(uint=random.getrandbits(1), length=1)
         self.sign_flag = BitArray(uint=random.getrandbits(1), length=1)
@@ -234,15 +242,25 @@ class Machine:
         """
         n = val.int
         if n > 0:
-            self.carry_flag = BitArray(bin="1") if n < 8 and self.acc[n - 1] else BitArray(bin="0")
+            self.carry_flag = (
+                BitArray(bin="1") if n < 8 and self.acc[n - 1] else BitArray(bin="0")
+            )
             if n == 1:
-                self.overflow_flag = BitArray(bin="1") if self.acc[0] != self.acc[1] else BitArray(bin="0")
+                self.overflow_flag = (
+                    BitArray(bin="1")
+                    if self.acc[0] != self.acc[1]
+                    else BitArray(bin="0")
+                )
             result = self.acc << n
         elif n < 0:
             m = -n
-            self.carry_flag = BitArray(bin="1") if m < 8 and self.acc[8 - m] else BitArray(bin="0")
+            self.carry_flag = (
+                BitArray(bin="1") if m < 8 and self.acc[8 - m] else BitArray(bin="0")
+            )
             if m == 1:
-                self.overflow_flag = BitArray(bin="1") if self.acc[0] else BitArray(bin="0")
+                self.overflow_flag = (
+                    BitArray(bin="1") if self.acc[0] else BitArray(bin="0")
+                )
             result = self.acc >> m
         else:
             result = self.acc.copy()
@@ -315,6 +333,22 @@ class Machine:
                 return self.reg6.copy()
             case "r7":
                 return self.reg7.copy()
+            case "r8":
+                return self.reg8.copy()
+            case "r9":
+                return self.reg9.copy()
+            case "r10":
+                return self.reg10.copy()
+            case "r11":
+                return self.reg11.copy()
+            case "r12":
+                return self.reg12.copy()
+            case "r13":
+                return self.reg13.copy()
+            case "r14":
+                return self.reg14.copy()
+            case "r15":
+                return self.reg15.copy()
             case _:
                 raise ValueError(f"Register {rd} not a valid register name")
 
@@ -336,6 +370,22 @@ class Machine:
                 self.acc = self.reg6.copy()
             case "r7":
                 self.acc = self.reg7.copy()
+            case "r8":
+                self.acc = self.reg8.copy()
+            case "r9":
+                self.acc = self.reg9.copy()
+            case "r10":
+                self.acc = self.reg10.copy()
+            case "r11":
+                self.acc = self.reg11.copy()
+            case "r12":
+                self.acc = self.reg12.copy()
+            case "r13":
+                self.acc = self.reg13.copy()
+            case "r14":
+                self.acc = self.reg14.copy()
+            case "r15":
+                self.acc = self.reg15.copy()
             case _:
                 raise ValueError(f"Register {rs} not a valid register name")
 
@@ -363,5 +413,21 @@ class Machine:
                 self.reg6 = val
             case "r7":
                 self.reg7 = val
+            case "r8":
+                self.reg8 = val
+            case "r9":
+                self.reg9 = val
+            case "r10":
+                self.reg10 = val
+            case "r11":
+                self.reg11 = val
+            case "r12":
+                self.reg12 = val
+            case "r13":
+                self.reg13 = val
+            case "r14":
+                self.reg14 = val
+            case "r15":
+                self.reg15 = val
             case _:
                 raise ValueError(f"Register {rd} not a valid register name")
