@@ -5,7 +5,7 @@ module ALU(
   output logic[7:0] Rslt,
   output logic      Zero,
                     Par,
-			              SCo
+                    SCo
 );
 
 always_comb begin
@@ -14,8 +14,8 @@ always_comb begin
   case(Aluop)
     2'b00: {SCo,Rslt} = DatA + DatB;   // add
     2'b01: {SCo,Rslt} = DatA<<1'b1;    // left shift
-	  2'b10: Rslt       = DatA & DatB;   // bitwise AND
-	  2'b11: Rslt       = DatA ^ DatB;   // bitwise XOR
+    2'b10: Rslt       = DatA & DatB;   // bitwise AND
+    2'b11: Rslt       = DatA ^ DatB;   // bitwise XOR
   endcase
 end
 
