@@ -1,11 +1,25 @@
 """
 Write a program to find the least and greatest Hamming distances among all
 pairs of values in an array of 32 two-byte half-words. Assume all values are
-signed 16-bit (“half-word”) integers. The array of integers runs from data
+signed 16-bit ("half-word") integers. The array of integers runs from data
 memory location 0 to 63. Even-numbered addresses are MSBs, following odd
 addresses are LSBs, e.g. a concatenation of addresses 0 and 1 forms a 16-bit
 two's complement half-word. Write the minimum distance in location 64 and the
 maximum in 65.
+
+Register allocation:
+    r0  = i              (outer loop index)
+    r1  = j              (inner loop index)
+    r2  = min_dist
+    r3  = max_dist
+    r4  = curr_dist      (this pair)
+    r5  = addr_msb1      (2*i)
+    r6  = addr_lsb1      (2*i + 1)
+    r7  = addr_msb2      (2*j)
+    r8  = addr_lsb2      (2*j + 1)
+    r9  = xor_msb        (MSB1 XOR MSB2)
+    r10 = xor_lsb        (LSB1 XOR LSB2)
+    r11 = shift_save     (temp during bit counting)
 """
 
 import sys
@@ -18,122 +32,93 @@ def main(vm: Machine | None = None) -> int:
     if vm is None:
         vm = Machine()
 
-    # initialize r2 <- min dist; r3 <- max dist
-    vm.ldi_I(BitArray(bin="01111111"))
+    # r2 <- min_dist (init to 16, the maximum possible Hamming distance)
+    vm.ldi_I(BitArray(uint=16, length=8))
     vm.sto_R("r2")
-    vm.ldi_I(BitArray(bin="00000000"))
+    # r3 <- max_dist (init to 0)
+    vm.ldi_I(BitArray(uint=0, length=8))
     vm.sto_R("r3")
 
     for i in range(32):
         for j in range(i + 1, 32):
-            # r0 <- i; r1 <- j ( not necessary for sim, but need to alloc in real asm code )
             vm.ldi_I(BitArray(uint=i, length=8))
             vm.sto_R("r0")
             vm.ldi_I(BitArray(uint=j, length=8))
             vm.sto_R("r1")
 
-            # r4 <- curr dist
-            vm.ldi_I(BitArray(bin="00000000"))
+            # r4 <- curr_dist = 0
+            vm.ldi_I(BitArray(uint=0, length=8))
             vm.sto_R("r4")
 
-            # r5 <- MSB1 addr
+            # r5 <- addr_msb1 = 2*i;  r6 <- addr_lsb1 = 2*i + 1
             vm.mov_R("r0")
             vm.shf_I(BitArray(int=1, length=8))
             vm.sto_R("r5")
-
-            # r5 <- MSB1
-            vm.ld_R("r5")
-            vm.sto_R("r5")
-
-            # r6 <- MSB2 addr
-            vm.mov_R("r1")
-            vm.shf_I(BitArray(int=1, length=8))
-            vm.sto_R("r6")
-
-            # acc <- MSB2
-            vm.ld_R("r6")
-
-            # MSB2 xor MSB1
-            vm.xor_R("r5")
-
-            # count how many ones
-            for _ in range(8):
-                # r5 will be loop counter in real asm
-                vm.shf_I(BitArray(int=1, length=8))
-                if vm.carry_flag[0]:
-                    # save acc in r6
-                    vm.sto_R("r6")
-
-                    # acc <- curr dist
-                    vm.mov_R("r4")
-                    vm.addi_I(BitArray(uint=1, length=8))
-
-                    # r4 <- curr dist
-                    vm.sto_R("r4")
-
-                    # get acc back
-                    vm.mov_R("r6")
-
-            # r5 <- LSB1 addr
-            vm.mov_R("r0")
-            vm.shf_I(BitArray(int=1, length=8))
-            vm.addi_I(BitArray(uint=1, length=8))
-            vm.sto_R("r5")
-
-            # r5 <- LSB1
-            vm.ld_R("r5")
-            vm.sto_R("r5")
-
-            # r6 <- LSB2 addr
-            vm.mov_R("r1")
-            vm.shf_I(BitArray(int=1, length=8))
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r6")
 
-            # acc <- LSB2
+            # r7 <- addr_msb2 = 2*j;  r8 <- addr_lsb2 = 2*j + 1
+            vm.mov_R("r1")
+            vm.shf_I(BitArray(int=1, length=8))
+            vm.sto_R("r7")
+            vm.addi_I(BitArray(uint=1, length=8))
+            vm.sto_R("r8")
+
+            # r9 <- MSB1 XOR MSB2
+            vm.ld_R("r5")
+            vm.sto_R("r9")
+            vm.ld_R("r7")
+            vm.xor_R("r9")
+            vm.sto_R("r9")
+
+            # r10 <- LSB1 XOR LSB2
             vm.ld_R("r6")
+            vm.sto_R("r10")
+            vm.ld_R("r8")
+            vm.xor_R("r10")
+            vm.sto_R("r10")
 
-            # LSB2 xor LSB1
-            vm.xor_R("r5")
-
-            # count how many ones
+            # count set bits in r9 (MSB XOR), accumulate into r4
+            vm.mov_R("r9")
             for _ in range(8):
-                # r5 will be loop counter in real asm
                 vm.shf_I(BitArray(int=1, length=8))
                 if vm.carry_flag[0]:
-                    # save acc in r6
-                    vm.sto_R("r6")
-
-                    # acc <- curr dist
+                    vm.sto_R("r11")
                     vm.mov_R("r4")
                     vm.addi_I(BitArray(uint=1, length=8))
-
-                    # r4 <- curr dist
                     vm.sto_R("r4")
+                    vm.mov_R("r11")
 
-                    # get acc back
-                    vm.mov_R("r6")
+            # count set bits in r10 (LSB XOR), accumulate into r4
+            vm.mov_R("r10")
+            for _ in range(8):
+                vm.shf_I(BitArray(int=1, length=8))
+                if vm.carry_flag[0]:
+                    vm.sto_R("r11")
+                    vm.mov_R("r4")
+                    vm.addi_I(BitArray(uint=1, length=8))
+                    vm.sto_R("r4")
+                    vm.mov_R("r11")
 
-            # Compare curr dist to min dist
+            # update min: if curr_dist < min_dist, min_dist = curr_dist
             vm.mov_R("r4")
             vm.cmp_R("r2")
             if vm.carry_flag[0]:
                 vm.sto_R("r2")
 
-            # Compare curr dist to max dist
+            # update max: if max_dist < curr_dist, max_dist = curr_dist
             vm.mov_R("r3")
             vm.cmp_R("r4")
             if vm.carry_flag[0]:
                 vm.mov_R("r4")
                 vm.sto_R("r3")
 
-    # Store min dist into memory
+    # store min_dist to mem[64], max_dist to mem[65]
     vm.ldi_I(BitArray(uint=64, length=8))
     vm.sto_R("r0")
     vm.mov_R("r2")
     vm.st_R("r0")
 
-    # Store max dist into memory
     vm.ldi_I(BitArray(uint=65, length=8))
     vm.sto_R("r0")
     vm.mov_R("r3")

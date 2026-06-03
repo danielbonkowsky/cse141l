@@ -1,13 +1,37 @@
 """
 Write a program to find the absolute values of the least and greatest
 arithmetic difference among all pairs of incoming values from Program 2.
-Assume again that all values are two's complement (“signed”) 16-bit integers.
+Assume again that all values are two's complement ("signed") 16-bit integers.
 The array of integers starts at location 0. Write the absolute value of the
 minimum difference in locations 66-67 and the maximum in 68-69. Format:
 mem[66] = MSB of smallest absolute value difference among pairs;
 mem[67] = LSB.
 mem[68] = MSB of largest absolute value difference among
 pairs, mem[69] = LSB.
+
+Register allocation (shared across main and all helper functions):
+    r0  = i              (outer loop index)
+    r1  = j              (inner loop index)
+    r2  = msb_a         (MSB of operand A for this pair)
+    r3  = lsb_a         (LSB of operand A)
+    r4  = msb_b         (MSB of operand B)
+    r5  = lsb_b         (LSB of operand B)
+    r6  = addr / scratch
+    r7  = addr / scratch
+    r8  = min_msb        (running minimum distance, MSB)
+    r9  = min_lsb        (running minimum distance, LSB)
+    r10 = max_msb        (running maximum distance, MSB)
+    r11 = max_lsb        (running maximum distance, LSB)
+
+Helper function contracts:
+    positive_op_dist: [r2,r3] and [r4,r5] are both non-negative.
+                      Writes |A - B| to [r2,r3]. Uses r6, r7 as scratch.
+    negative_op_dist: [r2,r3] and [r4,r5] are both negative.
+                      Writes |A - B| to [r2,r3]. Uses r6, r7 as scratch.
+    diff_sign_dist:   [r2,r3] and [r4,r5] have opposite signs.
+                      Writes |A - B| to [r2,r3].
+    update_min_max:   [r2,r3] = current distance.
+                      Compares against r8-r11 and updates them in place.
 """
 
 import sys
@@ -17,157 +41,38 @@ from util import Machine
 
 
 def positive_op_dist(vm: Machine) -> None:
-    """returns the distance between two positive ops. assumes they are stored as
-        mem[128] = msb1
-        mem[129] = lsb1
-        mem[130] = msb2
-        mem[131] = lsb2
-    and returns the result as
-        mem[128] = dist msb
-        mem[129] = dist lsb
-    preserves r0, r1
+    """[r2,r3] and [r4,r5] are non-negative. Writes |A - B| to [r2,r3].
+
+    Sorts so [r2,r3] >= [r4,r5], negates [r4,r5], then adds.
+    Uses r6, r7 as swap scratch.
     """
-    # r2 <- MSB2 addr
-    vm.ldi_I(BitArray(uint=130, length=8))
-    vm.sto_R("r2")
-
-    # r2 <- MSB2
-    vm.ld_R("r2")
-    vm.sto_R("r2")
-
-    # r3 <- MSB1 addr
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r3")
-
-    # acc <- MSB1
-    vm.ld_R("r3")
-
-    vm.cmp_R("r2")
-    # if msb1 < msb2
+    # sort: ensure [r2,r3] >= [r4,r5]
+    vm.mov_R("r2")
+    vm.cmp_R("r4")
     if vm.sign_flag[0]:
-        # r2 <- msb2; r3 <- lsb2; r4 <- msb1; r5 <- lsb1
-        # r4 <- msb1
-        vm.sto_R("r4")
-
-        # r3 <- lsb2 addr
-        vm.ldi_I(BitArray(uint=131, length=8))
-        vm.sto_R("r3")
-
-        # r3 <- lsb2
-        vm.ld_R("r3")
-        vm.sto_R("r3")
-
-        # r5 <- lsb1 addr
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r5")
-
-        # r5 <- lsb1
-        vm.ld_R("r5")
-        vm.sto_R("r5")
-
-    # if msb1 > msb2 (not less than or equal)
-    elif not vm.zero_flag[0]:
-        # r2 <- msb1; r3 <- lsb1; r4 <- msb2; r5 <- lsb2
-        # r2 <- msb1
-        vm.sto_R("r2")
-
-        # r3 <- lsb1 addr
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r3")
-
-        # r3 <- lsb1
-        vm.ld_R("r3")
-        vm.sto_R("r3")
-
-        # r4 <- msb2 addr
-        vm.ldi_I(BitArray(uint=130, length=8))
-        vm.sto_R("r4")
-
-        # r4 <- msb2
-        vm.ld_R("r4")
-        vm.sto_R("r4")
-
-        # r5 <- lsb2 addr
-        vm.ldi_I(BitArray(uint=131, length=8))
-        vm.sto_R("r5")
-
-        # r5 <- lsb2
-        vm.ld_R("r5")
-        vm.sto_R("r5")
-
-    # now we need to compare lsbs
-    else:
-        # r2 <- lsb2 addr
-        vm.ldi_I(BitArray(uint=131, length=8))
-        vm.sto_R("r2")
-
-        # r2 <- lsb2
-        vm.ld_R("r2")
-        vm.sto_R("r2")
-
-        # r3 <- lsb1 addr
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r3")
-
-        # acc <- lsb1
-        vm.ld_R("r3")
-
-        vm.cmp_R("r2")
-        # if lsb1 < lsb2 (and msbs are guaranteed equal)
+        # msb_a < msb_b → swap both pairs
+        vm.mov_R("r2"); vm.sto_R("r6")
+        vm.mov_R("r4"); vm.sto_R("r2")
+        vm.mov_R("r6"); vm.sto_R("r4")
+        vm.mov_R("r3"); vm.sto_R("r7")
+        vm.mov_R("r5"); vm.sto_R("r3")
+        vm.mov_R("r7"); vm.sto_R("r5")
+    elif vm.zero_flag[0]:
+        # msbs equal → compare lsbs (unsigned)
+        vm.mov_R("r3")
+        vm.cmp_R("r5")
         if vm.carry_flag[0]:
-            # r2 <- msb2; r3 <- lsb2; r4 <- msb1; r5 <- lsb1
-            # r5 <- lsb1
-            vm.sto_R("r5")
+            # lsb_a < lsb_b → swap both pairs
+            vm.mov_R("r2"); vm.sto_R("r6")
+            vm.mov_R("r4"); vm.sto_R("r2")
+            vm.mov_R("r6"); vm.sto_R("r4")
+            vm.mov_R("r3"); vm.sto_R("r7")
+            vm.mov_R("r5"); vm.sto_R("r3")
+            vm.mov_R("r7"); vm.sto_R("r5")
 
-            # r3 <- lsb2
-            vm.mov_R("r2")
-            vm.sto_R("r3")
+    # postcondition: [r2,r3] >= [r4,r5]
 
-            # r2 <- msb2 addr
-            vm.ldi_I(BitArray(uint=130, length=8))
-            vm.sto_R("r2")
-
-            # r2 <- msb2
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-
-            # r4 <- msb1 addr
-            vm.ldi_I(BitArray(uint=128, length=8))
-            vm.sto_R("r4")
-
-            # r4 <- msb1
-            vm.ld_R("r4")
-            vm.sto_R("r4")
-
-        # at this point, we know op1 >= op2
-        else:
-            # r2 <- msb1; r3 <- lsb1; r4 <- msb2; r5 <- lsb2
-            # r3 <- lsb1
-            vm.sto_R("r3")
-
-            # r5 <- lsb2
-            vm.mov_R("r2")
-            vm.sto_R("r5")
-
-            # r2 <- msb1 addr
-            vm.ldi_I(BitArray(uint=128, length=8))
-            vm.sto_R("r2")
-
-            # r2 <- msb1
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-
-            # r4 <- msb2 addr
-            vm.ldi_I(BitArray(uint=130, length=8))
-            vm.sto_R("r4")
-
-            # r4 <- msb2
-            vm.ld_R("r4")
-            vm.sto_R("r4")
-
-    # POSTCONDITION: [r2 r3] >= [r4 r5]
-
-    # now we negate [r4 r5]
+    # negate [r4,r5]
     vm.mov_R("r4")
     vm.inv_R()
     vm.sto_R("r4")
@@ -180,7 +85,7 @@ def positive_op_dist(vm: Machine) -> None:
         vm.addi_I(BitArray(uint=1, length=8))
         vm.sto_R("r4")
 
-    # add [r2 r3] + [r4 r5]
+    # [r2,r3] + negated [r4,r5] = [r2,r3] - original [r4,r5]
     vm.mov_R("r3")
     vm.add_R("r5")
     vm.sto_R("r3")
@@ -190,49 +95,18 @@ def positive_op_dist(vm: Machine) -> None:
     vm.add_R("r4")
     vm.sto_R("r2")
 
-    # POSTCONDITION [r2 r3] is the arithmetic distance between op1 and op2
-
-    # store in memory
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r2")
-    vm.st_R("r4")
-    vm.ldi_I(BitArray(uint=129, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r3")
-    vm.st_R("r4")
-
 
 def negative_op_dist(vm: Machine) -> None:
-    """returns the distance between two negative ops. assumes they are stored as
-        mem[128] = msb1
-        mem[129] = lsb1
-        mem[130] = msb2
-        mem[131] = lsb2
-    and returns the result as
-        mem[128] = dist msb
-        mem[129] = dist lsb
-    preserves r0, r1
+    """[r2,r3] and [r4,r5] are both negative. Writes |A - B| to [r2,r3].
+
+    Negates both operands in place, then delegates to positive_op_dist.
     """
-    # make op1 positive
-    # r2 <- msb1
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r2")
-    vm.ld_R("r2")
-    vm.sto_R("r2")
-
-    # acc <- lsb1
-    vm.ldi_I(BitArray(uint=129, length=8))
-    vm.sto_R("r3")
-    vm.ld_R("r3")
-
-    # negate
-    vm.inv_R()
-    vm.sto_R("r3")
+    # negate [r2,r3]
     vm.mov_R("r2")
     vm.inv_R()
     vm.sto_R("r2")
     vm.mov_R("r3")
+    vm.inv_R()
     vm.addi_I(BitArray(uint=1, length=8))
     vm.sto_R("r3")
     if vm.carry_flag[0]:
@@ -240,150 +114,58 @@ def negative_op_dist(vm: Machine) -> None:
         vm.addi_I(BitArray(uint=1, length=8))
         vm.sto_R("r2")
 
-    # postcondition: [r2 r3] is negated [mem[128] mem[129]]
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r2")
-    vm.st_R("r4")
-    vm.ldi_I(BitArray(uint=129, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r3")
-    vm.st_R("r4")
-
-    # make op2 positive
-    # r2 <- msb2
-    vm.ldi_I(BitArray(uint=130, length=8))
-    vm.sto_R("r2")
-    vm.ld_R("r2")
-    vm.sto_R("r2")
-
-    # acc <- lsb2
-    vm.ldi_I(BitArray(uint=131, length=8))
-    vm.sto_R("r3")
-    vm.ld_R("r3")
-
-    # negate
+    # negate [r4,r5]
+    vm.mov_R("r4")
     vm.inv_R()
-    vm.sto_R("r3")
-    vm.mov_R("r2")
+    vm.sto_R("r4")
+    vm.mov_R("r5")
     vm.inv_R()
-    vm.sto_R("r2")
-    vm.mov_R("r3")
     vm.addi_I(BitArray(uint=1, length=8))
-    vm.sto_R("r3")
+    vm.sto_R("r5")
     if vm.carry_flag[0]:
-        vm.mov_R("r2")
+        vm.mov_R("r4")
         vm.addi_I(BitArray(uint=1, length=8))
-        vm.sto_R("r2")
-
-    # postcondition: [r2 r3] is negated [mem[130] mem[131]]
-    vm.ldi_I(BitArray(uint=130, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r2")
-    vm.st_R("r4")
-    vm.ldi_I(BitArray(uint=131, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r3")
-    vm.st_R("r4")
+        vm.sto_R("r4")
 
     positive_op_dist(vm)
 
 
 def diff_sign_dist(vm: Machine) -> None:
-    """returns the distance between two ops of different signs. assumes they are
-    stored as
-        mem[128] = msb1
-        mem[129] = lsb1
-        mem[130] = msb2
-        mem[131] = lsb2
-    and returns the result as
-        mem[128] = dist msb
-        mem[129] = dist lsb
-    preserves r0, r1
-    """
-    # acc <- msb1
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r2")
-    vm.ld_R("r2")
+    """[r2,r3] and [r4,r5] have opposite signs. Writes |A - B| to [r2,r3].
 
-    # is op1 negative?
+    Negates the negative operand, then adds the two magnitudes.
+    """
+    # shift MSB left; carry = sign bit of op A
+    vm.mov_R("r2")
     vm.shf_I(BitArray(int=1, length=8))
     if vm.carry_flag[0]:
-        # r2 <- msb1
-        vm.ldi_I(BitArray(uint=128, length=8))
-        vm.sto_R("r2")
-        vm.ld_R("r2")
-        vm.sto_R("r2")
-
-        # acc <- lsb1
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r3")
-        vm.ld_R("r3")
-
-        # negate
-        vm.inv_R()
-        vm.sto_R("r3")
+        # op A is negative → negate [r2,r3]
         vm.mov_R("r2")
         vm.inv_R()
         vm.sto_R("r2")
         vm.mov_R("r3")
+        vm.inv_R()
         vm.addi_I(BitArray(uint=1, length=8))
         vm.sto_R("r3")
         if vm.carry_flag[0]:
             vm.mov_R("r2")
             vm.addi_I(BitArray(uint=1, length=8))
             vm.sto_R("r2")
-
-        # r4 <- msb2
-        vm.ldi_I(BitArray(uint=130, length=8))
-        vm.sto_R("r4")
-        vm.ld_R("r4")
-        vm.sto_R("r4")
-
-        # r5 <- lsb2
-        vm.ldi_I(BitArray(uint=131, length=8))
-        vm.sto_R("r5")
-        vm.ld_R("r5")
-        vm.sto_R("r5")
     else:
-        # r2 <- msb2
-        vm.ldi_I(BitArray(uint=130, length=8))
-        vm.sto_R("r2")
-        vm.ld_R("r2")
-        vm.sto_R("r2")
-
-        # acc <- lsb2
-        vm.ldi_I(BitArray(uint=131, length=8))
-        vm.sto_R("r3")
-        vm.ld_R("r3")
-
-        # negate
+        # op B is negative → negate [r4,r5]
+        vm.mov_R("r4")
         vm.inv_R()
-        vm.sto_R("r3")
-        vm.mov_R("r2")
+        vm.sto_R("r4")
+        vm.mov_R("r5")
         vm.inv_R()
-        vm.sto_R("r2")
-        vm.mov_R("r3")
         vm.addi_I(BitArray(uint=1, length=8))
-        vm.sto_R("r3")
+        vm.sto_R("r5")
         if vm.carry_flag[0]:
-            vm.mov_R("r2")
+            vm.mov_R("r4")
             vm.addi_I(BitArray(uint=1, length=8))
-            vm.sto_R("r2")
+            vm.sto_R("r4")
 
-        # r4 <- msb1
-        vm.ldi_I(BitArray(uint=128, length=8))
-        vm.sto_R("r4")
-        vm.ld_R("r4")
-        vm.sto_R("r4")
-
-        # r5 <- lsb1
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r5")
-        vm.ld_R("r5")
-        vm.sto_R("r5")
-
-    # postcondition: [r2 r3] [r4 r5] are the ops to be added
+    # add the two (now positive) magnitudes
     vm.mov_R("r3")
     vm.add_R("r5")
     vm.sto_R("r3")
@@ -393,174 +175,38 @@ def diff_sign_dist(vm: Machine) -> None:
     vm.add_R("r4")
     vm.sto_R("r2")
 
-    # store in memory
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r2")
-    vm.st_R("r4")
-    vm.ldi_I(BitArray(uint=129, length=8))
-    vm.sto_R("r4")
-    vm.mov_R("r3")
-    vm.st_R("r4")
-
 
 def update_min_max(vm: Machine) -> None:
-    """update the minimum and maximum distance values. assumes distances are
-    stored as
-    mem[128] = curr msb
-    mem[129] = curr lsb
-    mem[66] = min msb
-    mem[67] = min lsb
-    mem[68] = max msb
-    mem[69] = max lsb
-    """
-    # update min
-    # r2 <- min msb
-    vm.ldi_I(BitArray(uint=66, length=8))
-    vm.sto_R("r2")
-    vm.ld_R("r2")
-    vm.sto_R("r2")
+    """[r2,r3] = current distance. Updates r8-r11 (min/max) in place."""
+    # update min: if curr < min, min = curr
+    vm.mov_R("r2")
+    vm.cmp_R("r8")
+    if vm.carry_flag[0]:
+        # curr_msb < min_msb
+        vm.mov_R("r2"); vm.sto_R("r8")
+        vm.mov_R("r3"); vm.sto_R("r9")
+    elif vm.zero_flag[0]:
+        # msbs equal → compare lsbs (unsigned)
+        vm.mov_R("r3")
+        vm.cmp_R("r9")
+        if vm.carry_flag[0]:
+            vm.mov_R("r2"); vm.sto_R("r8")
+            vm.mov_R("r3"); vm.sto_R("r9")
 
-    # acc <- curr msb
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r3")
-    vm.ld_R("r3")
-
-    # compare msbs
+    # update max: if curr > max, max = curr
+    vm.mov_R("r10")
     vm.cmp_R("r2")
     if vm.carry_flag[0]:
-        # update min value
-        # r2 <- curr msb
-        vm.ldi_I(BitArray(uint=128, length=8))
-        vm.sto_R("r2")
-        vm.ld_R("r2")
-        vm.sto_R("r2")
-        # r3 <- curr lsb
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r3")
-        vm.ld_R("r3")
-        vm.sto_R("r3")
-        # update min msb
-        vm.ldi_I(BitArray(uint=66, length=8))
-        vm.sto_R("r4")
-        vm.mov_R("r2")
-        vm.st_R("r4")
-        # update min lsb
-        vm.ldi_I(BitArray(uint=67, length=8))
-        vm.sto_R("r4")
-        vm.mov_R("r3")
-        vm.st_R("r4")
+        # max_msb < curr_msb
+        vm.mov_R("r2"); vm.sto_R("r10")
+        vm.mov_R("r3"); vm.sto_R("r11")
     elif vm.zero_flag[0]:
-        # compare lsbs
-        # r2 <- min lsb
-        vm.ldi_I(BitArray(uint=67, length=8))
-        vm.sto_R("r2")
-        vm.ld_R("r2")
-        vm.sto_R("r2")
-
-        # acc <- curr lsb
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r3")
-        vm.ld_R("r3")
-
-        # compare lsbs
-        vm.cmp_R("r2")
+        # msbs equal → compare lsbs (unsigned)
+        vm.mov_R("r11")
+        vm.cmp_R("r3")
         if vm.carry_flag[0]:
-            # update min value
-            # r2 <- curr msb
-            vm.ldi_I(BitArray(uint=128, length=8))
-            vm.sto_R("r2")
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-            # r3 <- curr lsb
-            vm.ldi_I(BitArray(uint=129, length=8))
-            vm.sto_R("r3")
-            vm.ld_R("r3")
-            vm.sto_R("r3")
-            # update min msb
-            vm.ldi_I(BitArray(uint=66, length=8))
-            vm.sto_R("r4")
-            vm.mov_R("r2")
-            vm.st_R("r4")
-            # update min lsb
-            vm.ldi_I(BitArray(uint=67, length=8))
-            vm.sto_R("r4")
-            vm.mov_R("r3")
-            vm.st_R("r4")
-
-    # update max
-    # r2 <- curr msb
-    vm.ldi_I(BitArray(uint=128, length=8))
-    vm.sto_R("r2")
-    vm.ld_R("r2")
-    vm.sto_R("r2")
-
-    # acc <- max msb
-    vm.ldi_I(BitArray(uint=68, length=8))
-    vm.sto_R("r3")
-    vm.ld_R("r3")
-
-    # compare msbs
-    vm.cmp_R("r2")
-    if vm.carry_flag[0]:
-        # update max value
-        # r2 <- curr msb
-        vm.ldi_I(BitArray(uint=128, length=8))
-        vm.sto_R("r2")
-        vm.ld_R("r2")
-        vm.sto_R("r2")
-        # r3 <- curr lsb
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r3")
-        vm.ld_R("r3")
-        vm.sto_R("r3")
-        # update max msb
-        vm.ldi_I(BitArray(uint=68, length=8))
-        vm.sto_R("r4")
-        vm.mov_R("r2")
-        vm.st_R("r4")
-        # update min lsb
-        vm.ldi_I(BitArray(uint=69, length=8))
-        vm.sto_R("r4")
-        vm.mov_R("r3")
-        vm.st_R("r4")
-    elif vm.zero_flag[0]:
-        # compare lsbs
-        # r2 <- curr lsb
-        vm.ldi_I(BitArray(uint=129, length=8))
-        vm.sto_R("r2")
-        vm.ld_R("r2")
-        vm.sto_R("r2")
-
-        # acc <- max lsb
-        vm.ldi_I(BitArray(uint=69, length=8))
-        vm.sto_R("r3")
-        vm.ld_R("r3")
-
-        # compare lsbs
-        vm.cmp_R("r2")
-        if vm.carry_flag[0]:
-            # update min value
-            # r2 <- curr msb
-            vm.ldi_I(BitArray(uint=128, length=8))
-            vm.sto_R("r2")
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-            # r3 <- curr lsb
-            vm.ldi_I(BitArray(uint=129, length=8))
-            vm.sto_R("r3")
-            vm.ld_R("r3")
-            vm.sto_R("r3")
-            # update min msb
-            vm.ldi_I(BitArray(uint=68, length=8))
-            vm.sto_R("r4")
-            vm.mov_R("r2")
-            vm.st_R("r4")
-            # update min lsb
-            vm.ldi_I(BitArray(uint=69, length=8))
-            vm.sto_R("r4")
-            vm.mov_R("r3")
-            vm.st_R("r4")
+            vm.mov_R("r2"); vm.sto_R("r10")
+            vm.mov_R("r3"); vm.sto_R("r11")
 
 
 def test() -> None:
@@ -599,113 +245,88 @@ def test() -> None:
 def main(vm: Machine | None = None) -> int:
     if vm is None:
         vm = Machine()
-    # intialize min and max values
-    # min msb
-    vm.ldi_I(BitArray(uint=66, length=8))
-    vm.sto_R("r0")
+
+    # r8,r9 = min dist (init to 0xFFFF, the largest possible 16-bit value)
     vm.ldi_I(BitArray(uint=255, length=8))
-    vm.st_R("r0")
-    # min lsb
-    vm.ldi_I(BitArray(uint=67, length=8))
-    vm.sto_R("r0")
-    vm.ldi_I(BitArray(uint=255, length=8))
-    vm.st_R("r0")
-    # max msb
-    vm.ldi_I(BitArray(uint=68, length=8))
-    vm.sto_R("r0")
+    vm.sto_R("r8")
+    vm.sto_R("r9")
+
+    # r10,r11 = max dist (init to 0x0000)
     vm.ldi_I(BitArray(uint=0, length=8))
-    vm.st_R("r0")
-    # max lsb
-    vm.ldi_I(BitArray(uint=69, length=8))
-    vm.sto_R("r0")
-    vm.ldi_I(BitArray(uint=0, length=8))
-    vm.st_R("r0")
+    vm.sto_R("r10")
+    vm.sto_R("r11")
 
     for i in range(32):
         for j in range(i + 1, 32):
-            # r0 and r1 reserved for i, j
             vm.ldi_I(BitArray(uint=i, length=8))
             vm.sto_R("r0")
             vm.ldi_I(BitArray(uint=j, length=8))
             vm.sto_R("r1")
 
-            # store vals in memory
-            # mem[128] <- msb1
+            # load op A: r2 = msb, r3 = lsb  from mem[2*i], mem[2*i+1]
             vm.mov_R("r0")
             vm.shf_I(BitArray(int=1, length=8))
-            vm.sto_R("r2")
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-            vm.ldi_I(BitArray(uint=128, length=8))
-            vm.sto_R("r3")
-            vm.mov_R("r2")
-            vm.st_R("r3")
-            # mem[129] <- lsb1
-            vm.mov_R("r0")
-            vm.shf_I(BitArray(int=1, length=8))
+            vm.sto_R("r6")                          # r6 = 2*i
+            vm.ld_R("r6")
+            vm.sto_R("r2")                          # r2 = msb_a
+            vm.mov_R("r6")
             vm.addi_I(BitArray(uint=1, length=8))
-            vm.sto_R("r2")
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-            vm.ldi_I(BitArray(uint=129, length=8))
-            vm.sto_R("r3")
-            vm.mov_R("r2")
-            vm.st_R("r3")
-            # mem[130] <- msb2
-            vm.mov_R("r1")
-            vm.shf_I(BitArray(int=1, length=8))
-            vm.sto_R("r2")
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-            vm.ldi_I(BitArray(uint=130, length=8))
-            vm.sto_R("r3")
-            vm.mov_R("r2")
-            vm.st_R("r3")
-            # mem[131] <- lsb2
-            vm.mov_R("r1")
-            vm.shf_I(BitArray(int=1, length=8))
-            vm.addi_I(BitArray(uint=1, length=8))
-            vm.sto_R("r2")
-            vm.ld_R("r2")
-            vm.sto_R("r2")
-            vm.ldi_I(BitArray(uint=131, length=8))
-            vm.sto_R("r3")
-            vm.mov_R("r2")
-            vm.st_R("r3")
+            vm.sto_R("r7")                          # r7 = 2*i+1
+            vm.ld_R("r7")
+            vm.sto_R("r3")                          # r3 = lsb_a
 
-            # acc <- msb1
-            vm.mov_R("r0")
+            # load op B: r4 = msb, r5 = lsb  from mem[2*j], mem[2*j+1]
+            vm.mov_R("r1")
             vm.shf_I(BitArray(int=1, length=8))
-            vm.sto_R("r2")
-            vm.ld_R("r2")
-            # is it negative?
+            vm.sto_R("r6")                          # r6 = 2*j
+            vm.ld_R("r6")
+            vm.sto_R("r4")                          # r4 = msb_b
+            vm.mov_R("r6")
+            vm.addi_I(BitArray(uint=1, length=8))
+            vm.sto_R("r7")                          # r7 = 2*j+1
+            vm.ld_R("r7")
+            vm.sto_R("r5")                          # r5 = lsb_b
+
+            # dispatch on sign combination (shift MSB left; carry = sign bit)
+            vm.mov_R("r2")
             vm.shf_I(BitArray(int=1, length=8))
-            if vm.carry_flag[0]:
-                # acc <- msb2
-                vm.mov_R("r1")
+            if vm.carry_flag[0]:                    # op A is negative
+                vm.mov_R("r4")
                 vm.shf_I(BitArray(int=1, length=8))
-                vm.sto_R("r2")
-                vm.ld_R("r2")
-                # is it negative?
-                vm.shf_I(BitArray(int=1, length=8))
-                if vm.carry_flag[0]:
+                if vm.carry_flag[0]:                # op B also negative
                     negative_op_dist(vm)
                 else:
                     diff_sign_dist(vm)
-            else:
-                # acc <- msb2
-                vm.mov_R("r1")
+            else:                                   # op A is positive
+                vm.mov_R("r4")
                 vm.shf_I(BitArray(int=1, length=8))
-                vm.sto_R("r2")
-                vm.ld_R("r2")
-                # is it negative?
-                vm.shf_I(BitArray(int=1, length=8))
-                if vm.carry_flag[0]:
+                if vm.carry_flag[0]:                # op B is negative
                     diff_sign_dist(vm)
                 else:
                     positive_op_dist(vm)
 
             update_min_max(vm)
+
+    # write min to mem[66-67], max to mem[68-69]
+    vm.ldi_I(BitArray(uint=66, length=8))
+    vm.sto_R("r6")
+    vm.mov_R("r8")
+    vm.st_R("r6")
+
+    vm.ldi_I(BitArray(uint=67, length=8))
+    vm.sto_R("r6")
+    vm.mov_R("r9")
+    vm.st_R("r6")
+
+    vm.ldi_I(BitArray(uint=68, length=8))
+    vm.sto_R("r6")
+    vm.mov_R("r10")
+    vm.st_R("r6")
+
+    vm.ldi_I(BitArray(uint=69, length=8))
+    vm.sto_R("r6")
+    vm.mov_R("r11")
+    vm.st_R("r6")
 
     return 0
 
