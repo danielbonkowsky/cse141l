@@ -49,8 +49,6 @@ The `.mem` output from the assembler is loaded by `InstROM.sv` via `$readmemb("m
 - `nop` = `cmp r0` — safe no-op
 - `jmpl LABEL rN` — 5-instruction pseudo-op: loads absolute address into rN, then `jmp rN`
 
-**JMP is ABSOLUTE** (`PC = rN`), not relative, despite older documentation saying `PC += R`. All programs load at address 0, so an 8-bit register suffices for all targets.
-
 ## Registers
 
 16 registers (r0–r15), all 8-bit. **r0 is hardwired to 0**. The accumulator (ACC) is a separate implicit destination — `RegFile.sv` maps it to index 15 (`\`define ACC 15`). Most arithmetic instructions write to ACC, while `sto rN` writes ACC into register rN.
