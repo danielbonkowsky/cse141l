@@ -169,28 +169,28 @@ module tb_alu;
         test_op(4'b1011, 8'b1010_1010, 8'd0,  8'b1010_1010, 0, 1, 0, 0, "SHF by 0 -> noop");
 
         // -----------------------------------------------------------------
-        // LDI (opcode 1101): ACC = immediate (0-15 unsigned)
+        // LDI (opcode 1100): ACC = immediate (0-15 unsigned)
         // preserves flags
         // -----------------------------------------------------------------
         $display("--- LDI ---");
-        test_op(4'b1101, 8'd0, 8'd7,  8'd7,  0, 0, 0, 0, "LDI 7");
-        test_op(4'b1101, 8'd0, 8'd0,  8'd0,  1, 0, 0, 0, "LDI 0 -> zero flag");
-        test_op(4'b1101, 8'd0, 8'd15, 8'd15, 0, 0, 0, 0, "LDI 15 (max)");
+        test_op(4'b1100, 8'd0, 8'd7,  8'd7,  0, 0, 0, 0, "LDI 7");
+        test_op(4'b1100, 8'd0, 8'd0,  8'd0,  1, 0, 0, 0, "LDI 0 -> zero flag");
+        test_op(4'b1100, 8'd0, 8'd15, 8'd15, 0, 0, 0, 0, "LDI 15 (max)");
 
         // -----------------------------------------------------------------
-        // ADDI (opcode 1110): ACC += signed immediate (-8 to +7)
-        // same flag behavior as ADD
+        // ADDI (opcode 1101): ACC += signed immediate (-8 to +7)
+        // same flag behavior as ADD; negative immediate uses borrow for carry
         // -----------------------------------------------------------------
         $display("--- ADDI (signed immediate) ---");
         // positive immediate
-        test_op(4'b1110, 8'd10, 8'd4,  8'd14,  0, 0, 0, 0, "ADDI +4");
-        test_op(4'b1110, 8'd0,  8'd7,  8'd7,   0, 0, 0, 0, "ADDI +7 (max positive imm)");
-        test_op(4'b1110, 8'hFF, 8'd1,  8'h00,  1, 0, 1, 0, "ADDI +1 -> unsigned overflow");
-        // negative immediate (4-bit 2's comp: -1=1111, -2=1110, ..., -8=1000)
-        test_op(4'b1110, 8'd10, 8'hFF, 8'd9,   0, 0, 0, 0, "ADDI -1 (0xF)");
-        test_op(4'b1110, 8'd10, 8'hFE, 8'd8,   0, 0, 0, 0, "ADDI -2 (0xE)");
-        test_op(4'b1110, 8'd5,  8'hFB, 8'd0,   1, 0, 0, 0, "ADDI -5 -> zero");
-        test_op(4'b1110, 8'd3,  8'hFB, 8'hFE,  0, 1, 1, 0, "ADDI -5 -> borrow, sign set");
+        test_op(4'b1101, 8'd10, 8'd4,  8'd14,  0, 0, 0, 0, "ADDI +4");
+        test_op(4'b1101, 8'd0,  8'd7,  8'd7,   0, 0, 0, 0, "ADDI +7 (max positive imm)");
+        test_op(4'b1101, 8'hFF, 8'd1,  8'h00,  1, 0, 1, 0, "ADDI +1 -> unsigned overflow");
+        // negative immediate (4-bit 2's comp sign-extended: -1=0xFF, -2=0xFE, ..., -8=0xF8)
+        test_op(4'b1101, 8'd10, 8'hFF, 8'd9,   0, 0, 0, 0, "ADDI -1 (0xF)");
+        test_op(4'b1101, 8'd10, 8'hFE, 8'd8,   0, 0, 0, 0, "ADDI -2 (0xE)");
+        test_op(4'b1101, 8'd5,  8'hFB, 8'd0,   1, 0, 0, 0, "ADDI -5 -> zero");
+        test_op(4'b1101, 8'd3,  8'hFB, 8'hFE,  0, 1, 1, 0, "ADDI -5 -> borrow, sign set");
 
         $display("=== ALU Testbench Complete ===");
         $finish;

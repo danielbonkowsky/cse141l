@@ -1,5 +1,5 @@
 module InstROM(
-  input[5:0] PC,
+  input[9:0] PC,
   output logic[8:0] mach_code
 );
 

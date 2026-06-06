@@ -1,97 +1,145 @@
 module Top(
-  input        Clk,
+  input  logic Clk,
                Reset,
   output logic Done
 );
 
-  wire[5:0] Jump,
-            PC;
-  wire[1:0] Aluop,
-            Ra,
-            Rb,
-            Wd,
-            Jptr;
-  wire[8:0] mach_code;
-  wire[7:0] DatA,	     // ALU data in
-            DatB,
-            Rslt,      // ALU data out
-            RdatA,     // RF data out
-            RdatB,
-            WdatR,     // RF data in
-            WdatD,     // DM data in
-            Rdat,		   // DM data out
-            Addr;		   // DM address
-  wire      Jen,		   // PC jump enable
-            Par,       // ALU parity flag
-            SCo,       // ALU shift/carry out
-            Zero,      // ALU zero flag
-            WenR,      // RF write enable
-            WenD,      // DM write enable
-            Ldr,       // LOAD
-            Str;       // STORE
+  // Program counter
+  wire [9:0] PC;
 
-assign  DatA  = RdatA;
-assign  DatB  = RdatB;
-assign  WdatR = Rslt;
+  // Instruction
+  wire [8:0] mach_code;
 
-JLUT JL1(
-  .Jptr,
-  .Jump
-);
+  // Control signals
+  wire [3:0] AluOp;
+  wire [3:0] Ra;
+  wire [3:0] Wd;
+  wire       WenR, WenD, Ldr, ImmSel, FlagWen, IsJmp, IsBranch;
+  wire [1:0] BranchCond;
 
-ProgCtr PC1(
-  .Clk,
-  .Reset,
-  .Jen,
-  .Jump,
-  .PC
-);
+  // Data paths
+  wire [7:0] RdatAcc, RdatReg;   // register file reads
+  wire [7:0] DatA, DatB;         // ALU inputs
+  wire [7:0] Rslt;                // ALU result
+  wire [7:0] Rdat;                // data memory read
+  wire [7:0] Wdat;                // register file write data
+  wire [7:0] Addr;                // data memory address
+  wire [7:0] WdatD;               // data memory write data
 
-InstROM IR1(
-  .PC,
-  .mach_code
-);
+  // ALU flags (combinational)
+  wire z_flag, s_flag, c_flag, ov_flag;
 
-Ctrl C1(
-  .mach_code,
-  .Aluop,
-  .Jptr,
-  .Ra,
-  .Rb,
-  .Wd,
-  .WenR,
-  .WenD,
-  .Ldr,
-  .Str
-);
+  // Registered flags (persist between instructions)
+  logic z_reg, s_reg, c_reg, ov_reg;
 
-RegFile RF1(
-  .Clk,
-  .Wen(WenR),
-  .Ra,
-  .Rb,
-  .Wd,
-  .Wdat(WdatR),
-  .RdatA,
-  .RdatB
-);
+  // Branch / jump control
+  logic       branch_taken;
+  wire        Jen;
+  wire [9:0]  jump_target;
 
-ALU A1(
-  .Aluop,
-  .DatA,
-  .DatB,
-  .Rslt,
-  .Zero,
-  .Par,
-  .SCo
-);
+  // Done: the "done" encoding is beq 0 = 9'b100000000
+  assign Done = (mach_code == 9'b100000000);
 
-DMem DM1(
-  .Clk,
-  .Wen (WenD),
-  .WDat(WdatD),
-  .Addr,
-  .Rdat
-);
+  // Flag registers — only updated by instructions that affect flags
+  always_ff @(posedge Clk) begin
+    if (FlagWen) begin
+      z_reg  <= z_flag;
+      s_reg  <= s_flag;
+      c_reg  <= c_flag;
+      ov_reg <= ov_flag;
+    end
+  end
+
+  // Branch condition evaluation (reads registered flags)
+  always_comb begin
+    case (BranchCond)
+      2'b00: branch_taken = IsBranch & z_reg;                // BEQ: zero flag
+      2'b01: branch_taken = IsBranch & ~z_reg;               // BNE: not zero
+      2'b10: branch_taken = IsBranch & (s_reg ^ ov_reg);     // BLT: sign != overflow
+      2'b11: branch_taken = IsBranch & c_reg;                // BLTU: carry (borrow)
+      default: branch_taken = 1'b0;
+    endcase
+  end
+
+  // Jump target: absolute (JMP rN) or PC-relative (branches)
+  wire signed [9:0] br_offset = {{4{mach_code[5]}}, mach_code[5:0]};
+  assign jump_target = IsJmp ? {2'b0, RdatReg} : (PC + 10'd1 + br_offset);
+  assign Jen = IsJmp | branch_taken;
+
+  // Immediate extension: zero-extend for LDI, sign-extend for SHF/ADDI
+  wire [7:0] imm_ext = (AluOp == 4'hC) ? {4'b0, mach_code[3:0]}
+                                        : {{4{mach_code[3]}}, mach_code[3:0]};
+
+  // ALU input B mux: register value or extended immediate
+  assign DatA  = RdatAcc;
+  assign DatB  = ImmSel ? imm_ext : RdatReg;
+
+  // Register write data: ALU result, or memory data for LD
+  assign Wdat  = Ldr ? Rdat : Rslt;
+
+  // Memory address is always the operand register value
+  assign Addr  = RdatReg;
+
+  // ST always stores ACC to memory
+  assign WdatD = RdatAcc;
+
+  // Module instantiations
+
+  ProgCtr PC1(
+    .Clk,
+    .Reset,
+    .Jen,
+    .Jump  (jump_target),
+    .PC
+  );
+
+  InstROM IR1(
+    .PC,
+    .mach_code
+  );
+
+  Ctrl C1(
+    .mach_code,
+    .AluOp,
+    .Ra,
+    .Wd,
+    .WenR,
+    .WenD,
+    .Ldr,
+    .ImmSel,
+    .FlagWen,
+    .IsJmp,
+    .IsBranch,
+    .BranchCond
+  );
+
+  RegFile RF1(
+    .Clk,
+    .Wen   (WenR),
+    .Ra,
+    .Wd,
+    .Wdat,
+    .RdatAcc,
+    .RdatReg
+  );
+
+  alu A1(
+    .alu_op (AluOp),
+    .acc    (DatA),
+    .alu_in (DatB),
+    .result (Rslt),
+    .z_flag,
+    .s_flag,
+    .c_flag,
+    .ov_flag
+  );
+
+  DMem DM1(
+    .Clk,
+    .Wen  (WenD),
+    .WDat (WdatD),
+    .Addr,
+    .Rdat
+  );
 
 endmodule

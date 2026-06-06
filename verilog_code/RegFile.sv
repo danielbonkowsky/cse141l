@@ -1,20 +1,19 @@
-`define ACC 15
-
 module RegFile(
-  input       Clk,	   // clock
-              Wen,     // write enable
-  input[1:0]  Ra,      // read address pointer
-  input[7:0]  Wdat,    // write data in
-  output[7:0] RdatAcc, // read data out acc
-              RdatReg  // read data out reg
+  input        Clk,
+               Wen,
+  input  [3:0] Ra,       // operand register read address
+  input  [3:0] Wd,       // write destination (4'hF = ACC, or Rd for STO)
+  input  [7:0] Wdat,     // write data
+  output [7:0] RdatAcc,  // always reads ACC (r15)
+               RdatReg   // reads register at address Ra
 );
 
-  logic[7:0] Core[16]; // reg file itself (16*8 array)
+  logic [7:0] Core[16];
 
   always_ff @(posedge Clk)
-    if (Wen) Core[ACC] <= Wdat;
+    if (Wen) Core[Wd] <= Wdat;
 
-  assign RdatAcc = Core[ACC];
+  assign RdatAcc = Core[15];
   assign RdatReg = Core[Ra];
 
 endmodule
