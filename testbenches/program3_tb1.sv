@@ -1,17 +1,17 @@
 // program 3    CSE141L   double precision two's comp. multiplication
 module test_bench;
 
-// connections to DUT: clock, start (request), done (acknowledge) 
+// connections to DUT: clock, start (request), done (acknowledge)
   bit  clk,
        start = 'b1;			          // request to DUT
   wire done;                          // acknowledge from DUT
 
   logic signed[15:0]  Tmp[32];	      // caches all 32 2-byte operands
   logic signed[31:0] Prod[16];	      // caches all 16 4-byte products
-  
+
   DUT D1(.clk  (clk  ),	              // your design goes here
 		 .start(start),
-		 .done (done )); 
+		 .done (done ));
 
 always begin
     #50ns clk = 'b1;
@@ -26,7 +26,7 @@ int tests_passed = 0;
   initial begin
 // load operands for program 3 into data memory
 // 32 double-precision operands go into data_mem [0:63]
-// first operand = {data_mem[0],data_mem[1]}  
+// first operand = {data_mem[0],data_mem[1]}
     for(int loop_ct=0; loop_ct<itrs; loop_ct++) begin
         #100ns;
         case(loop_ct)
@@ -49,7 +49,7 @@ int tests_passed = 0;
         // 	compute correct answers
         for(int j=0; j<16; j++) 			              // pull pairs of operands from memory
 	        #1ns Prod[j] = Tmp[2*j+1]*Tmp[2*j];		      // compute prod.
-	    #200ns start = 'b0; 							  
+	    #200ns start = 'b0;
         #200ns wait (done);						          // avoid false done signals on startups
 
         test_ctr = 0;
@@ -74,7 +74,7 @@ int tests_passed = 0;
       end
 
     end
-    
+
   end
 
 endmodule
