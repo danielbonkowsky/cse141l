@@ -1,7 +1,7 @@
-module Top(
-  input  logic Clk,
-               Reset,
-  output logic Done
+module DUT(
+  input  logic clk,
+               start,
+  output logic done
 );
 
   // Program counter
@@ -38,10 +38,10 @@ module Top(
   wire [9:0]  jump_target;
 
   // Done: the "done" encoding is beq 0 = 9'b100000000
-  assign Done = (mach_code == 9'b100000000);
+  assign done = (mach_code == 9'b100000000);
 
   // Flag registers — only updated by instructions that affect flags
-  always_ff @(posedge Clk) begin
+  always_ff @(posedge clk) begin
     if (FlagWen) begin
       z_reg  <= z_flag;
       s_reg  <= s_flag;
@@ -86,8 +86,8 @@ module Top(
   // Module instantiations
 
   ProgCtr PC1(
-    .Clk,
-    .Reset,
+    .Clk   (clk),
+    .Reset (start),
     .Jen,
     .Jump  (jump_target),
     .PC
@@ -114,7 +114,7 @@ module Top(
   );
 
   RegFile RF1(
-    .Clk,
+    .Clk   (clk),
     .Wen   (WenR),
     .Ra,
     .Wd,
@@ -134,8 +134,8 @@ module Top(
     .ov_flag
   );
 
-  DMem DM1(
-    .Clk,
+  DMem dm(
+    .Clk  (clk),
     .Wen  (WenD),
     .WDat (WdatD),
     .Addr,

@@ -11,9 +11,9 @@ module RegFile(
   logic [7:0] Core[16];
 
   always_ff @(posedge Clk)
-    if (Wen) Core[Wd] <= Wdat;
+    if (Wen && Wd != 4'b0) Core[Wd] <= Wdat;
 
   assign RdatAcc = Core[15];
-  assign RdatReg = Core[Ra];
+  assign RdatReg = (Ra == 4'b0) ? 8'b0 : Core[Ra];
 
 endmodule
