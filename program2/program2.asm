@@ -46,8 +46,8 @@ INNER_LOOP:
     bne AFTER_SWAP                 # num1_lsb > num2_lsb → no swap
     beq AFTER_SWAP                 # equal (num1 == num2) → no swap
 DO_SWAP:
-    mov r9;  sto r15; mov r11; sto r9;  mov r15; sto r11   # swap msbs
-    mov r10; sto r15; mov r12; sto r10; mov r15; sto r12   # swap lsbs
+    mov r9;  sto r8; mov r11; sto r9;  mov r8; sto r11   # swap msbs
+    mov r10; sto r8; mov r12; sto r10; mov r8; sto r12   # swap lsbs
 AFTER_SWAP:
     # r9:r10 = greater, r11:r12 = lesser
 
